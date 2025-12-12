@@ -50,7 +50,8 @@ class Config:
     mistral_model: str = "voxtral-small-latest"
 
     # Audio settings
-    selected_microphone: str = ""
+    # Default to "pulse" which routes through PipeWire/PulseAudio
+    selected_microphone: str = "pulse"
     sample_rate: int = 48000
 
     # UI settings
@@ -82,8 +83,12 @@ def load_config() -> Config:
         try:
             with open(CONFIG_FILE, "r") as f:
                 data = json.load(f)
-            return Config(**data)
-        except (json.JSONDecodeError, TypeError):
+            # Filter to only known fields to handle schema changes gracefully
+            known_fields = {f.name for f in Config.__dataclass_fields__.values()}
+            filtered_data = {k: v for k, v in data.items() if k in known_fields}
+            return Config(**filtered_data)
+        except (json.JSONDecodeError, TypeError) as e:
+            print(f"Warning: Could not load config: {e}")
             pass
 
     # Return default config

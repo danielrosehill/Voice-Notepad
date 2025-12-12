@@ -265,11 +265,16 @@ class SettingsDialog(QDialog):
                 self.mic_combo.setCurrentIndex(idx)
                 return
 
-        # Default to Samson Q2U if available
-        for i in range(self.mic_combo.count()):
-            if "Samson" in self.mic_combo.itemText(i) or "Q2U" in self.mic_combo.itemText(i):
-                self.mic_combo.setCurrentIndex(i)
-                return
+        # Default to "pulse" which routes through PipeWire/PulseAudio
+        idx = self.mic_combo.findText("pulse")
+        if idx >= 0:
+            self.mic_combo.setCurrentIndex(idx)
+            return
+
+        # Fallback to "default"
+        idx = self.mic_combo.findText("default")
+        if idx >= 0:
+            self.mic_combo.setCurrentIndex(idx)
 
     def _use_suggested_hotkeys(self):
         """Fill in the suggested hotkeys (F15, F16)."""
@@ -677,9 +682,15 @@ class MainWindow(QMainWindow):
                 if name == self.config.selected_microphone:
                     return idx
 
-        # Default to first Samson/Q2U if available
+        # Default to "pulse" which routes through PipeWire/PulseAudio
+        # This picks up the system's default source (e.g., USB microphones)
         for idx, name in devices:
-            if "Samson" in name or "Q2U" in name:
+            if name == "pulse":
+                return idx
+
+        # Fallback to "default" if pulse not available
+        for idx, name in devices:
+            if name == "default":
                 return idx
 
         # Fall back to first device
