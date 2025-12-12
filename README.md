@@ -2,6 +2,15 @@
 
 A PyQt6 desktop application for voice recording with AI-powered transcription and cleanup. Uses multimodal AI models (Gemini, OpenAI GPT-4o, Mistral Voxtral) to transcribe audio AND clean it up in a single pass.
 
+## Background
+
+Previous voice notepad iterations used a two-phase approach: speech-to-text (ASR) followed by LLM cleanup. Voice Notepad V3 consolidates this into a single phase by leveraging multimodal AI models that accept audio as an input modality. The audio is sent directly to the model along with a cleanup prompt, and the model returns cleaned, formatted text.
+
+This approach:
+- Reduces latency (one API call instead of two)
+- Produces more contextually aware cleanup (the model "hears" the original audio)
+- Supports verbal instructions embedded in the recording (e.g., "delete that last part")
+
 ## Features
 
 - **One-shot transcription + cleanup**: Audio is sent with a cleanup prompt to multimodal models, eliminating the need for separate ASR and LLM passes
@@ -47,7 +56,7 @@ Set your API keys either:
 Default models:
 - **Gemini**: `gemini-2.0-flash-lite`
 - **OpenAI**: `gpt-4o-audio-preview`
-- **Mistral**: `mistral-small-latest`
+- **Mistral**: `voxtral-mini-latest`
 
 These can be changed in Settings > Models.
 
@@ -106,10 +115,10 @@ Voice-Notepad-V3/
 │   ├── transcription.py   # API clients
 │   ├── markdown_widget.py # Markdown display
 │   └── config.py          # Configuration
-├── docs/                   # Documentation
+├── planning/               # Development planning
 │   ├── apiref/            # API reference docs
-│   ├── idea-notes/        # Planning notes
-│   └── screenshots/       # Screenshots
+│   └── idea-notes/        # Original concept notes
+├── screenshots/            # Screenshots
 ├── requirements.txt
 ├── run.sh
 └── README.md
@@ -122,6 +131,20 @@ Voice-Notepad-V3/
 - PyAudio (requires system audio libraries)
 - ffmpeg (for audio processing via pydub)
 - API keys for your chosen provider(s)
+
+## Roadmap
+
+Planned features for future releases:
+
+- **Cost tracking**: Monitor API spend (today/week/month) per provider
+- **Auto-copy to clipboard**: Option to automatically copy transcription to clipboard
+- **Virtual input insertion**: Type transcription directly into any text field (Wayland support)
+- **Debian packaging**: Build as .deb for easy Ubuntu/Debian installation
+
+## Related Resources
+
+- [Audio-Multimodal-AI-Resources](https://github.com/danielrosehill/Audio-Multimodal-AI-Resources) - Curated list of audio-capable multimodal AI models and APIs
+- [Audio-Understanding-Test-Prompts](https://github.com/danielrosehill/Audio-Understanding-Test-Prompts) - Test prompts for evaluating audio understanding capabilities
 
 ## License
 

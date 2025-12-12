@@ -92,7 +92,7 @@ class OpenAIClient(TranscriptionClient):
 class MistralClient(TranscriptionClient):
     """Mistral API client for audio transcription using Voxtral."""
 
-    def __init__(self, api_key: str, model: str = "mistral-small-latest"):
+    def __init__(self, api_key: str, model: str = "voxtral-mini-latest"):
         self.api_key = api_key
         self.model = model
         self._client = None
@@ -107,9 +107,8 @@ class MistralClient(TranscriptionClient):
         """Transcribe audio using Mistral's Voxtral model."""
         client = self._get_client()
 
-        # Encode audio as base64 data URL
+        # Encode audio as base64 (Voxtral expects raw base64, not data URL)
         audio_b64 = base64.b64encode(audio_data).decode("utf-8")
-        audio_url = f"data:audio/wav;base64,{audio_b64}"
 
         response = client.chat.complete(
             model=self.model,
@@ -117,11 +116,11 @@ class MistralClient(TranscriptionClient):
                 {
                     "role": "user",
                     "content": [
-                        {"type": "text", "text": prompt},
                         {
-                            "type": "audio_url",
-                            "audio_url": audio_url
-                        }
+                            "type": "input_audio",
+                            "input_audio": audio_b64
+                        },
+                        {"type": "text", "text": prompt}
                     ]
                 }
             ]

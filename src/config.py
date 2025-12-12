@@ -26,7 +26,7 @@ class Config:
     # Model names per provider
     gemini_model: str = "gemini-2.0-flash-lite"
     openai_model: str = "gpt-4o-audio-preview"
-    mistral_model: str = "mistral-small-latest"
+    mistral_model: str = "voxtral-mini-latest"
 
     # Audio settings
     selected_microphone: str = ""
