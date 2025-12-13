@@ -45,7 +45,7 @@ from PyQt6.QtGui import QIcon, QAction, QFont, QClipboard, QShortcut, QKeySequen
 
 from .config import (
     Config, load_config, save_config, load_env_keys,
-    GEMINI_MODELS, OPENAI_MODELS, MISTRAL_MODELS,
+    GEMINI_MODELS, OPENAI_MODELS, MISTRAL_MODELS, OPENROUTER_MODELS,
 )
 from .audio_recorder import AudioRecorder
 from .transcription import get_client, TranscriptionResult
@@ -63,6 +63,7 @@ from .cost_tracker import get_tracker
 from .history_widget import HistoryWidget
 from .cost_widget import CostWidget
 from .analysis_widget import AnalysisWidget
+from .models_widget import ModelsWidget
 from .about_widget import AboutWidget
 from .audio_feedback import get_feedback
 
@@ -179,6 +180,10 @@ class SettingsDialog(QDialog):
         self.mistral_key = QLineEdit(self.config.mistral_api_key)
         self.mistral_key.setEchoMode(QLineEdit.EchoMode.Password)
         api_layout.addRow("Mistral API Key:", self.mistral_key)
+
+        self.openrouter_key = QLineEdit(self.config.openrouter_api_key)
+        self.openrouter_key.setEchoMode(QLineEdit.EchoMode.Password)
+        api_layout.addRow("OpenRouter API Key:", self.openrouter_key)
 
         tabs.addTab(api_tab, "API Keys")
 
@@ -333,6 +338,7 @@ class SettingsDialog(QDialog):
         self.config.gemini_api_key = self.gemini_key.text()
         self.config.openai_api_key = self.openai_key.text()
         self.config.mistral_api_key = self.mistral_key.text()
+        self.config.openrouter_api_key = self.openrouter_key.text()
         self.config.selected_microphone = self.mic_combo.currentText()
         self.config.start_minimized = self.start_minimized.isChecked()
         self.config.sample_rate = int(self.sample_rate.currentText())
@@ -407,8 +413,12 @@ class MainWindow(QMainWindow):
 
         provider_layout.addWidget(QLabel("Provider:"))
         self.provider_combo = QComboBox()
-        self.provider_combo.addItems(["Gemini", "OpenAI", "Mistral"])
-        self.provider_combo.setCurrentText(self.config.selected_provider.title())
+        self.provider_combo.addItems(["OpenRouter", "Gemini", "OpenAI", "Mistral"])
+        # Handle display name mapping for provider
+        provider_display = self.config.selected_provider.title()
+        if provider_display == "Openrouter":
+            provider_display = "OpenRouter"
+        self.provider_combo.setCurrentText(provider_display)
         self.provider_combo.currentTextChanged.connect(self.on_provider_changed)
         provider_layout.addWidget(self.provider_combo)
 
@@ -579,6 +589,10 @@ class MainWindow(QMainWindow):
         # Analysis tab
         self.analysis_widget = AnalysisWidget()
         self.tabs.addTab(self.analysis_widget, "Analysis")
+
+        # Models tab
+        self.models_widget = ModelsWidget()
+        self.tabs.addTab(self.models_widget, "Models")
 
         # About tab
         self.about_widget = AboutWidget()
@@ -779,14 +793,14 @@ class MainWindow(QMainWindow):
 
     def on_tab_changed(self, index: int):
         """Handle tab change - refresh data in the selected tab."""
-        # Tabs: 0=Record, 1=History, 2=Cost, 3=Analysis, 4=About
+        # Tabs: 0=Record, 1=History, 2=Cost, 3=Analysis, 4=Models, 5=About
         if index == 1:  # History tab
             self.history_widget.refresh()
         elif index == 2:  # Cost tab
             self.cost_widget.refresh()
         elif index == 3:  # Analysis tab
             self.analysis_widget.refresh()
-        # About tab (index 4) doesn't need refresh
+        # Models tab (index 4) and About tab (index 5) don't need refresh
 
     def on_history_transcription_selected(self, text: str):
         """Handle transcription selected from history - put in editor."""
@@ -829,7 +843,10 @@ class MainWindow(QMainWindow):
         self.model_combo.clear()
 
         provider = self.config.selected_provider.lower()
-        if provider == "gemini":
+        if provider == "openrouter":
+            models = OPENROUTER_MODELS
+            current_model = self.config.openrouter_model
+        elif provider == "gemini":
             models = GEMINI_MODELS
             current_model = self.config.gemini_model
         elif provider == "openai":
@@ -862,7 +879,9 @@ class MainWindow(QMainWindow):
         model_id = self.model_combo.currentData()
         provider = self.config.selected_provider.lower()
 
-        if provider == "gemini":
+        if provider == "openrouter":
+            self.config.openrouter_model = model_id
+        elif provider == "gemini":
             self.config.gemini_model = model_id
         elif provider == "openai":
             self.config.openai_model = model_id
@@ -976,7 +995,10 @@ class MainWindow(QMainWindow):
 
         # Get API key for selected provider
         provider = self.config.selected_provider
-        if provider == "gemini":
+        if provider == "openrouter":
+            api_key = self.config.openrouter_api_key
+            model = self.config.openrouter_model
+        elif provider == "gemini":
             api_key = self.config.gemini_api_key
             model = self.config.gemini_model
         elif provider == "openai":
@@ -1015,7 +1037,9 @@ class MainWindow(QMainWindow):
 
         # Get provider/model info
         provider = self.config.selected_provider
-        if provider == "gemini":
+        if provider == "openrouter":
+            model = self.config.openrouter_model
+        elif provider == "gemini":
             model = self.config.gemini_model
         elif provider == "openai":
             model = self.config.openai_model

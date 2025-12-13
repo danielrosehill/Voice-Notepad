@@ -6,7 +6,7 @@ Voice Notepad V3 is a PyQt6 desktop application for voice recording with AI-powe
 
 ## Core Concept
 
-Instead of separate speech-to-text followed by text cleanup, this app sends audio directly to multimodal models (Gemini, OpenAI GPT-4o, Mistral Voxtral) along with a cleanup prompt. The model handles both transcription and text cleanup simultaneously.
+Instead of separate speech-to-text followed by text cleanup, this app sends audio directly to multimodal models (via OpenRouter, Gemini, OpenAI GPT-4o, or Mistral Voxtral) along with a cleanup prompt. The model handles both transcription and text cleanup simultaneously.
 
 ## Architecture
 
@@ -30,16 +30,19 @@ Voice-Notepad-V3/
 - `main.py` - Main PyQt6 application window and UI (tabbed interface)
 - `audio_recorder.py` - Audio recording with PyAudio
 - `audio_processor.py` - Audio compression and Opus archival
-- `transcription.py` - API clients for Gemini, OpenAI, and Mistral
+- `transcription.py` - API clients for OpenRouter, Gemini, OpenAI, and Mistral
 - `markdown_widget.py` - Markdown rendering widget
 - `config.py` - Configuration management (API keys, models, settings)
 - `hotkeys.py` - Global hotkey handling using pynput
 - `cost_tracker.py` - Daily API cost tracking based on token usage
 - `cost_widget.py` - Cost tab for detailed spend tracking by time period
 - `database.py` - SQLite database for transcription history
-- `vad_processor.py` - Voice Activity Detection (silence removal)
+- `vad_processor.py` - Voice Activity Detection (silence removal) using Silero VAD
 - `history_widget.py` - History tab for browsing past transcriptions
 - `analysis_widget.py` - Analytics tab for model performance stats
+- `models_widget.py` - Models tab showing available AI models by provider
+- `about_widget.py` - About tab with app info and keyboard shortcuts
+- `audio_feedback.py` - Audio beep notifications for recording start/stop
 
 ### Configuration
 
@@ -70,11 +73,16 @@ The app supports global hotkeys that work even when the window is minimized or u
 
 ### Supported AI Providers
 
-| Provider | Model | API Endpoint |
-|----------|-------|--------------|
-| Gemini | `gemini-2.0-flash-lite` (default) | Google AI |
-| OpenAI | `gpt-4o-audio-preview` | OpenAI |
-| Mistral | `voxtral-mini-latest` | Mistral AI |
+| Provider | Models | API Endpoint |
+|----------|--------|--------------|
+| **OpenRouter** (Default) | `google/gemini-2.5-flash`, `google/gemini-2.5-flash-lite`, `google/gemini-2.0-flash-001`, `openai/gpt-4o-audio-preview`, `mistralai/voxtral-small-24b-2507` | OpenRouter |
+| Gemini | `gemini-flash-latest`*, `gemini-2.5-flash`, `gemini-2.5-flash-lite`, `gemini-2.5-pro` | Google AI |
+| OpenAI | `gpt-4o-audio-preview`, `gpt-4o-mini-audio-preview`, `gpt-audio`, `gpt-audio-mini` | OpenAI |
+| Mistral | `voxtral-small-latest`, `voxtral-mini-latest` | Mistral AI |
+
+**OpenRouter** is the recommended provider - it provides access to multiple models through a single API key, making it easy to switch between Gemini, GPT-4o, and Voxtral models.
+
+*`gemini-flash-latest` is a dynamic endpoint that always points to Google's latest Flash model.
 
 ## Development Guidelines
 
@@ -87,8 +95,9 @@ This creates the venv in `app/.venv` if needed and launches the app.
 
 ### Environment Variables
 
-Required in `.env` or system environment:
+Required in `.env` or system environment (only need the key for your chosen provider):
 ```
+OPENROUTER_API_KEY=your_key  # Recommended - access multiple models
 GEMINI_API_KEY=your_key
 OPENAI_API_KEY=your_key
 MISTRAL_API_KEY=your_key
@@ -123,7 +132,8 @@ Audio is compressed before upload:
 - [x] **History tab**: Browse, search, and reuse past transcriptions
 - [x] **Cost tab**: Detailed spend tracking (hourly, daily, weekly, all-time)
 - [x] **Analysis tab**: Model performance metrics (inference time, chars/sec)
-- [x] **Tabbed interface**: Record, History, Cost, and Analysis tabs
+- [x] **Models tab**: Browse available models by provider with tier indicators
+- [x] **Tabbed interface**: Record, History, Cost, Analysis, Models, and About tabs
 
 ### Planned
 
@@ -171,19 +181,24 @@ The status bar shows "Today: $X.XXXX (N)" where N is the number of transcription
 
 ## Voice Activity Detection (VAD)
 
-VAD is enabled by default (Settings → Behavior → Enable VAD). It uses Silero VAD (ONNX model) to detect speech segments and remove silence before sending audio to the API.
+VAD is enabled by default (Settings → Behavior → Enable VAD). It uses [Silero VAD](https://github.com/snakers4/silero-vad) (ONNX model) to detect speech segments and remove silence before sending audio to the API.
 
 **Benefits:**
 - Reduces audio file size by removing silence
 - Lowers API costs (fewer audio tokens)
 - Faster upload times
-- The VAD model (~1.4MB) is downloaded automatically on first use
 
-**Technical details:**
-- Processes audio after recording stops, before compression
-- Uses 16kHz audio for detection
+**Model:**
+- **Silero VAD** - lightweight ONNX model (~1.4MB)
+- Downloaded automatically on first use to `~/.config/voice-notepad-v3/models/silero_vad.onnx`
+- GitHub: https://github.com/snakers4/silero-vad
+
+**Technical parameters:**
+- Sample rate: 16kHz
+- Window size: 512 samples (~32ms)
+- Speech probability threshold: 0.5
 - Minimum speech segment: 250ms
-- Padding around speech: 30ms
+- Speech padding: 30ms
 
 ## Transcript History
 

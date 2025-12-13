@@ -125,6 +125,7 @@ class AboutWidget(QWidget):
         providers_layout = QVBoxLayout(providers_group)
 
         providers = [
+            "OpenRouter (Recommended) - Access multiple models via single API",
             "Gemini (Google) - gemini-2.0-flash-lite, gemini-flash-latest",
             "OpenAI - gpt-4o-audio-preview",
             "Mistral - voxtral-mini-latest",
@@ -136,6 +137,43 @@ class AboutWidget(QWidget):
             providers_layout.addWidget(p_label)
 
         layout.addWidget(providers_group)
+
+        # Voice Activity Detection
+        vad_group = QGroupBox("Voice Activity Detection (VAD)")
+        vad_layout = QVBoxLayout(vad_group)
+
+        vad_intro = QLabel(
+            "VAD removes silence from recordings before sending to the API, "
+            "reducing file size and cost."
+        )
+        vad_intro.setWordWrap(True)
+        vad_intro.setStyleSheet("color: #444; font-size: 11px;")
+        vad_layout.addWidget(vad_intro)
+
+        vad_model = QLabel(
+            '<b>Model:</b> <a href="https://github.com/snakers4/silero-vad">Silero VAD</a> (ONNX)'
+        )
+        vad_model.setOpenExternalLinks(True)
+        vad_model.setWordWrap(True)
+        vad_model.setStyleSheet("font-size: 11px; margin-top: 5px;")
+        vad_layout.addWidget(vad_model)
+
+        vad_details = QLabel(
+            "<b>Parameters:</b> 16kHz sample rate, 512-sample window (~32ms), "
+            "0.5 speech probability threshold"
+        )
+        vad_details.setWordWrap(True)
+        vad_details.setStyleSheet("color: #666; font-size: 10px;")
+        vad_layout.addWidget(vad_details)
+
+        vad_storage = QLabel(
+            "<b>Storage:</b> ~/.config/voice-notepad-v3/models/silero_vad.onnx (~1.4MB)"
+        )
+        vad_storage.setWordWrap(True)
+        vad_storage.setStyleSheet("color: #666; font-size: 10px;")
+        vad_layout.addWidget(vad_storage)
+
+        layout.addWidget(vad_group)
 
         # Credits
         credits_group = QGroupBox("Credits")

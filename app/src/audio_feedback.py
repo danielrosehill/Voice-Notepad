@@ -82,9 +82,9 @@ class AudioFeedback:
 
     def __init__(self):
         self._enabled = True
-        # Pre-generate beep sounds
-        self._start_beep = generate_beep(frequency=880, duration_ms=100, volume=0.25)  # A5, short
-        self._stop_beep = generate_double_beep(freq1=880, freq2=660, duration_ms=80, volume=0.25)  # A5 down to E5
+        # Pre-generate beep sounds (volume ~0.12 for discreet office-friendly notifications)
+        self._start_beep = generate_beep(frequency=880, duration_ms=100, volume=0.12)  # A5, short
+        self._stop_beep = generate_double_beep(freq1=880, freq2=660, duration_ms=80, volume=0.12)  # A5 down to E5
 
     @property
     def enabled(self) -> bool:

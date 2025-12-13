@@ -31,6 +31,16 @@ MISTRAL_MODELS = [
     ("voxtral-mini-latest", "Voxtral Mini (Budget)"),
 ]
 
+# OpenRouter models (using OpenAI-compatible API)
+OPENROUTER_MODELS = [
+    ("google/gemini-2.5-flash", "Gemini 2.5 Flash"),
+    ("google/gemini-2.5-flash-lite", "Gemini 2.5 Flash Lite (Budget)"),
+    ("google/gemini-2.0-flash-001", "Gemini 2.0 Flash"),
+    ("google/gemini-2.0-flash-lite-001", "Gemini 2.0 Flash Lite (Budget)"),
+    ("openai/gpt-4o-audio-preview", "GPT-4o Audio Preview"),
+    ("mistralai/voxtral-small-24b-2507", "Voxtral Small 24B"),
+]
+
 
 @dataclass
 class Config:
@@ -40,14 +50,16 @@ class Config:
     gemini_api_key: str = ""
     openai_api_key: str = ""
     mistral_api_key: str = ""
+    openrouter_api_key: str = ""
 
-    # Selected model provider: "gemini", "openai", "mistral"
-    selected_provider: str = "gemini"
+    # Selected model provider: "openrouter", "gemini", "openai", "mistral"
+    selected_provider: str = "openrouter"
 
     # Model names per provider
     gemini_model: str = "gemini-flash-latest"
     openai_model: str = "gpt-4o-audio-preview"
     mistral_model: str = "voxtral-small-latest"
+    openrouter_model: str = "google/gemini-2.5-flash"
 
     # Audio settings
     # Default to "pulse" which routes through PipeWire/PulseAudio
@@ -120,4 +132,6 @@ def load_env_keys(config: Config) -> Config:
         config.openai_api_key = os.environ.get("OPENAI_API_KEY", "")
     if not config.mistral_api_key:
         config.mistral_api_key = os.environ.get("MISTRAL_API_KEY", "")
+    if not config.openrouter_api_key:
+        config.openrouter_api_key = os.environ.get("OPENROUTER_API_KEY", "")
     return config

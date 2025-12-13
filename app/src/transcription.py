@@ -171,9 +171,70 @@ class MistralClient(TranscriptionClient):
         )
 
 
+class OpenRouterClient(TranscriptionClient):
+    """OpenRouter API client for audio transcription (OpenAI-compatible)."""
+
+    OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1"
+
+    def __init__(self, api_key: str, model: str = "google/gemini-2.5-flash"):
+        self.api_key = api_key
+        self.model = model
+        self._client = None
+
+    def _get_client(self):
+        if self._client is None:
+            from openai import OpenAI
+            self._client = OpenAI(
+                api_key=self.api_key,
+                base_url=self.OPENROUTER_BASE_URL,
+            )
+        return self._client
+
+    def transcribe(self, audio_data: bytes, prompt: str) -> TranscriptionResult:
+        """Transcribe audio using OpenRouter's multimodal models."""
+        client = self._get_client()
+
+        # Encode audio as base64
+        audio_b64 = base64.b64encode(audio_data).decode("utf-8")
+
+        response = client.chat.completions.create(
+            model=self.model,
+            messages=[
+                {
+                    "role": "user",
+                    "content": [
+                        {"type": "text", "text": prompt},
+                        {
+                            "type": "input_audio",
+                            "input_audio": {
+                                "data": audio_b64,
+                                "format": "wav"
+                            }
+                        }
+                    ]
+                }
+            ]
+        )
+
+        # Extract usage data
+        input_tokens = 0
+        output_tokens = 0
+        if hasattr(response, 'usage') and response.usage:
+            input_tokens = getattr(response.usage, 'prompt_tokens', 0) or 0
+            output_tokens = getattr(response.usage, 'completion_tokens', 0) or 0
+
+        return TranscriptionResult(
+            text=response.choices[0].message.content,
+            input_tokens=input_tokens,
+            output_tokens=output_tokens
+        )
+
+
 def get_client(provider: str, api_key: str, model: str) -> TranscriptionClient:
     """Factory function to get appropriate transcription client."""
-    if provider == "gemini":
+    if provider == "openrouter":
+        return OpenRouterClient(api_key, model)
+    elif provider == "gemini":
         return GeminiClient(api_key, model)
     elif provider == "openai":
         return OpenAIClient(api_key, model)
