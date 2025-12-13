@@ -112,18 +112,27 @@ class GlobalHotkeyListener:
 
     def __init__(self):
         self.hotkeys: Dict[str, set] = {}  # name -> key set
-        self.callbacks: Dict[str, Callable] = {}  # name -> callback
+        self.callbacks: Dict[str, Callable] = {}  # name -> callback (on press)
+        self.release_callbacks: Dict[str, Callable] = {}  # name -> callback (on release)
         self.pressed_keys: set = set()
+        self.active_hotkeys: set = set()  # Track which hotkeys are currently "active" (pressed)
         self.listener: Optional[keyboard.Listener] = None
         self._lock = threading.Lock()
 
-    def register(self, name: str, hotkey_str: str, callback: Callable) -> bool:
-        """Register a hotkey with a callback.
+    def register(
+        self,
+        name: str,
+        hotkey_str: str,
+        callback: Callable,
+        release_callback: Optional[Callable] = None
+    ) -> bool:
+        """Register a hotkey with callbacks for press and optional release.
 
         Args:
             name: Unique name for this hotkey (e.g., 'start_recording')
             hotkey_str: Hotkey string like 'f16' or 'ctrl+shift+r'
             callback: Function to call when hotkey is pressed
+            release_callback: Optional function to call when hotkey is released (for PTT)
 
         Returns:
             True if registration was successful, False otherwise
@@ -134,11 +143,16 @@ class GlobalHotkeyListener:
             with self._lock:
                 self.hotkeys.pop(name, None)
                 self.callbacks.pop(name, None)
+                self.release_callbacks.pop(name, None)
             return False
 
         with self._lock:
             self.hotkeys[name] = keys
             self.callbacks[name] = callback
+            if release_callback:
+                self.release_callbacks[name] = release_callback
+            else:
+                self.release_callbacks.pop(name, None)
         return True
 
     def unregister(self, name: str):
@@ -146,6 +160,8 @@ class GlobalHotkeyListener:
         with self._lock:
             self.hotkeys.pop(name, None)
             self.callbacks.pop(name, None)
+            self.release_callbacks.pop(name, None)
+            self.active_hotkeys.discard(name)
 
     def start(self):
         """Start listening for global hotkeys."""
@@ -164,6 +180,7 @@ class GlobalHotkeyListener:
             self.listener.stop()
             self.listener = None
         self.pressed_keys.clear()
+        self.active_hotkeys.clear()
 
     def _on_press(self, key):
         """Handle key press events."""
@@ -174,16 +191,35 @@ class GlobalHotkeyListener:
         # Check if any hotkey combination is pressed
         with self._lock:
             for name, hotkey_keys in self.hotkeys.items():
-                if hotkey_keys and hotkey_keys.issubset(self.pressed_keys):
-                    callback = self.callbacks.get(name)
-                    if callback:
-                        # Call callback in a separate thread to avoid blocking
-                        threading.Thread(target=callback, daemon=True).start()
+                # Only trigger if not already active (prevent repeat triggers while held)
+                if name not in self.active_hotkeys:
+                    if hotkey_keys and hotkey_keys.issubset(self.pressed_keys):
+                        self.active_hotkeys.add(name)
+                        callback = self.callbacks.get(name)
+                        if callback:
+                            # Call callback in a separate thread to avoid blocking
+                            threading.Thread(target=callback, daemon=True).start()
 
     def _on_release(self, key):
         """Handle key release events."""
         normalized = self._normalize_key(key)
         self.pressed_keys.discard(normalized)
+
+        # Check if any active hotkey is no longer fully pressed
+        with self._lock:
+            released_hotkeys = []
+            for name in list(self.active_hotkeys):
+                hotkey_keys = self.hotkeys.get(name, set())
+                # If any key in the hotkey combo is released, the hotkey is released
+                if hotkey_keys and not hotkey_keys.issubset(self.pressed_keys):
+                    released_hotkeys.append(name)
+
+            for name in released_hotkeys:
+                self.active_hotkeys.discard(name)
+                release_callback = self.release_callbacks.get(name)
+                if release_callback:
+                    # Call release callback in a separate thread
+                    threading.Thread(target=release_callback, daemon=True).start()
 
     def _normalize_key(self, key):
         """Normalize a key for consistent comparison."""
@@ -282,11 +318,33 @@ class HotkeyCapture:
 
 # Suggested hotkeys for users with macro keys
 SUGGESTED_HOTKEYS = {
+    # Tap-to-Toggle mode
     "record_toggle": "F15",
     "stop_and_transcribe": "F16",
+    # Separate mode
+    "start": "F15",
+    "stop_discard": "F16",
+    # PTT mode
+    "ptt": "F15",
 }
 
 HOTKEY_DESCRIPTIONS = {
     "record_toggle": "Record Toggle (Start/Stop)",
     "stop_and_transcribe": "Stop & Transcribe",
+    "start": "Start Recording",
+    "stop_discard": "Stop & Discard",
+    "ptt": "Push-to-Talk",
+}
+
+# Hotkey mode display names
+HOTKEY_MODE_NAMES = {
+    "tap_toggle": "Tap to Toggle",
+    "separate": "Separate Start/Stop",
+    "ptt": "Push-to-Talk (PTT)",
+}
+
+HOTKEY_MODE_DESCRIPTIONS = {
+    "tap_toggle": "One key toggles recording on/off. A separate key stops and transcribes.",
+    "separate": "Different keys for Start, Stop (discard), and Stop & Transcribe.",
+    "ptt": "Hold a key to record. Recording stops when you release the key.",
 }

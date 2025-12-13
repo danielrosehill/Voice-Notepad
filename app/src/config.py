@@ -94,8 +94,24 @@ class Config:
 
     # Hotkeys (global keyboard shortcuts)
     # Supported keys: F14-F20 (macro keys), F1-F12, or modifier combinations
+    #
+    # Three hotkey modes:
+    # - "tap_toggle": One key toggles start/stop, separate key for stop & transcribe
+    # - "separate": Different keys for start, stop (discard), and stop & transcribe
+    # - "ptt": Push-to-talk - hold key to record, release to stop
+    hotkey_mode: str = "tap_toggle"
+
+    # Tap-to-Toggle mode hotkeys
     hotkey_record_toggle: str = "f15"  # Toggle recording on/off
     hotkey_stop_and_transcribe: str = "f16"  # Stop and transcribe
+
+    # Separate mode hotkeys
+    hotkey_start: str = ""  # Start recording only
+    hotkey_stop_discard: str = ""  # Stop and discard
+
+    # PTT mode settings
+    hotkey_ptt: str = ""  # Push-to-talk key (hold to record)
+    ptt_release_action: str = "transcribe"  # "transcribe" or "discard" on key release
 
     # Storage settings
     store_audio: bool = False  # Archive audio recordings

@@ -1,5 +1,6 @@
 # Voice Notepad
-![alt text](screenshots/v1/image.png)
+
+![Voice Notepad](screenshots/1_3_0/composite.png)
 
 Notepad app that offers a variety of multimodal audio models for single operation transcription and light text cleanup (as opposed to ASR + LLM combination).
 

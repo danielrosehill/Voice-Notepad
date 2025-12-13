@@ -57,10 +57,20 @@ Settings stored in `~/.config/voice-notepad-v3/`:
 
 The app supports global hotkeys that work even when the window is minimized or unfocused. Configure in Settings → Hotkeys tab.
 
+**Shortcut Modes:**
+
+| Mode | Description |
+|------|-------------|
+| **Tap to Toggle** | One key toggles recording on/off. A separate key stops and transcribes. |
+| **Separate Start/Stop** | Different keys for Start, Stop (discard), and Stop & Transcribe. |
+| **Push-to-Talk (PTT)** | Hold a key to record. Recording stops when you release the key. Configurable action on release (transcribe or discard). |
+
 **Available Actions:**
-- **Start Recording** - Begin a new recording
-- **Stop Recording (discard)** - Stop and discard the current recording
-- **Stop & Transcribe** - Stop recording and send to AI for transcription
+- **Toggle Recording** - Start or stop recording (Tap to Toggle mode)
+- **Start Recording** - Begin a new recording (Separate mode)
+- **Stop & Discard** - Stop and discard the current recording (Separate mode)
+- **Stop & Transcribe** - Stop recording and send to AI for transcription (all modes)
+- **Push-to-Talk Key** - Hold to record, release to stop (PTT mode)
 
 **Recommended Keys:** F14-F20 (macro keys) are suggested to avoid conflicts with other applications. These keys are available on keyboards with programmable macro keys.
 

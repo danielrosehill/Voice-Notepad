@@ -16,6 +16,31 @@ from PyQt6.QtCore import Qt
 from PyQt6.QtGui import QFont
 
 from .database import get_db
+from .config import GEMINI_MODELS, OPENAI_MODELS, MISTRAL_MODELS, OPENROUTER_MODELS
+
+
+# Build a lookup dict from model_id -> display_name
+MODEL_DISPLAY_NAMES = {}
+for model_id, display_name in GEMINI_MODELS + OPENAI_MODELS + MISTRAL_MODELS + OPENROUTER_MODELS:
+    MODEL_DISPLAY_NAMES[model_id] = display_name
+
+# Provider display names
+PROVIDER_DISPLAY_NAMES = {
+    "openrouter": "Open Router",
+    "gemini": "Google",
+    "openai": "OpenAI",
+    "mistral": "Mistral",
+}
+
+
+def get_model_display_name(model_id: str) -> str:
+    """Get human-readable display name for a model ID."""
+    return MODEL_DISPLAY_NAMES.get(model_id, model_id)
+
+
+def get_provider_display_name(provider: str) -> str:
+    """Get human-readable display name for a provider."""
+    return PROVIDER_DISPLAY_NAMES.get(provider.lower(), provider.title())
 
 
 def format_size(size_bytes: int) -> str:
@@ -100,7 +125,7 @@ class AnalysisWidget(QWidget):
         self.model_table = QTableWidget()
         self.model_table.setColumnCount(6)
         self.model_table.setHorizontalHeaderLabels([
-            "Provider", "Model", "Count", "Avg Inference (ms)", "Chars/sec", "Total Cost"
+            "Provider", "Model", "Count", "Avg Inference (s)", "Chars/sec", "Total Cost"
         ])
         self.model_table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
         self.model_table.setAlternatingRowColors(True)
@@ -138,7 +163,7 @@ class AnalysisWidget(QWidget):
         self.stat_labels["transcriptions"].setText(str(recent["count"]))
         self.stat_labels["total_cost"].setText(f"${recent['total_cost']:.2f}")
         self.stat_labels["avg_inference"].setText(
-            f"{recent['avg_inference_ms']:.0f}ms" if recent['avg_inference_ms'] else "--"
+            f"{recent['avg_inference_ms'] / 1000.0:.1f}s" if recent['avg_inference_ms'] else "--"
         )
         self.stat_labels["total_words"].setText(f"{recent['total_words']:,}")
 
@@ -147,10 +172,14 @@ class AnalysisWidget(QWidget):
         self.model_table.setRowCount(len(performance))
 
         for row, perf in enumerate(performance):
-            self.model_table.setItem(row, 0, QTableWidgetItem(perf["provider"].title()))
-            self.model_table.setItem(row, 1, QTableWidgetItem(perf["model"]))
+            provider_display = get_provider_display_name(perf["provider"])
+            model_display = get_model_display_name(perf["model"])
+            avg_inference_sec = perf['avg_inference_ms'] / 1000.0  # Convert ms to seconds
+
+            self.model_table.setItem(row, 0, QTableWidgetItem(provider_display))
+            self.model_table.setItem(row, 1, QTableWidgetItem(model_display))
             self.model_table.setItem(row, 2, QTableWidgetItem(str(perf["count"])))
-            self.model_table.setItem(row, 3, QTableWidgetItem(f"{perf['avg_inference_ms']:.0f}"))
+            self.model_table.setItem(row, 3, QTableWidgetItem(f"{avg_inference_sec:.1f}"))
             self.model_table.setItem(row, 4, QTableWidgetItem(f"{perf['avg_chars_per_sec']:.1f}"))
             self.model_table.setItem(row, 5, QTableWidgetItem(f"${perf['total_cost']:.2f}"))
 

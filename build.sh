@@ -1,27 +1,55 @@
 #!/bin/bash
 # Build a Debian package for Voice Notepad V3
 # Output: dist/voice-notepad_VERSION_amd64.deb
+#
+# Uses venv caching for fast rebuilds - only reinstalls deps when requirements.txt changes
+#
+# Usage: ./build.sh [VERSION] [--fast]
+#   --fast: Skip compression for faster builds (larger .deb, good for dev iteration)
 
 set -e
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$SCRIPT_DIR"
 
-# Version from argument or default
-VERSION="${1:-1.1.0}"
+# Parse arguments
+VERSION="1.3.0"
+FAST_MODE=false
+
+for arg in "$@"; do
+    case $arg in
+        --fast)
+            FAST_MODE=true
+            ;;
+        *)
+            VERSION="$arg"
+            ;;
+    esac
+done
+
 PACKAGE_NAME="voice-notepad"
 ARCH="amd64"
 
-echo "=== Building Voice Notepad V3 - v${VERSION} ==="
+# Cache directory for venv
+CACHE_DIR="$SCRIPT_DIR/.build-cache"
+CACHED_VENV="$CACHE_DIR/venv"
+REQUIREMENTS_HASH_FILE="$CACHE_DIR/requirements.hash"
+
+if [ "$FAST_MODE" = true ]; then
+    echo "=== Building Voice Notepad V3 - v${VERSION} (FAST MODE) ==="
+else
+    echo "=== Building Voice Notepad V3 - v${VERSION} ==="
+fi
 echo ""
 
 # Build directory
 BUILD_DIR="$SCRIPT_DIR/build/deb"
 INSTALL_DIR="$BUILD_DIR/${PACKAGE_NAME}_${VERSION}_${ARCH}"
 
-# Clean previous build
+# Clean previous build (but keep cache!)
 rm -rf "$BUILD_DIR"
 mkdir -p "$INSTALL_DIR"
+mkdir -p "$CACHE_DIR"
 
 # Create directory structure
 mkdir -p "$INSTALL_DIR/DEBIAN"
@@ -30,14 +58,35 @@ mkdir -p "$INSTALL_DIR/usr/bin"
 mkdir -p "$INSTALL_DIR/usr/share/applications"
 mkdir -p "$INSTALL_DIR/usr/share/icons/hicolor/128x128/apps"
 
-echo "Creating virtual environment and installing dependencies..."
+# Check if we need to rebuild the venv
+CURRENT_HASH=$(sha256sum app/requirements.txt | cut -d' ' -f1)
+CACHED_HASH=""
+if [ -f "$REQUIREMENTS_HASH_FILE" ]; then
+    CACHED_HASH=$(cat "$REQUIREMENTS_HASH_FILE")
+fi
 
-# Create venv using uv with system Python (not uv-managed)
-uv venv "$INSTALL_DIR/opt/voice-notepad/.venv" --python /usr/bin/python3 --seed
-source "$INSTALL_DIR/opt/voice-notepad/.venv/bin/activate"
+if [ "$CURRENT_HASH" = "$CACHED_HASH" ] && [ -d "$CACHED_VENV" ]; then
+    echo "Using cached venv (requirements unchanged)..."
+    # Use hardlinks for near-instant copy (same filesystem)
+    cp -al "$CACHED_VENV" "$INSTALL_DIR/opt/voice-notepad/.venv"
+else
+    echo "Creating virtual environment and installing dependencies..."
 
-# Install dependencies using uv
-uv pip install -r app/requirements.txt
+    # Create venv using uv with system Python (not uv-managed)
+    uv venv "$INSTALL_DIR/opt/voice-notepad/.venv" --python /usr/bin/python3 --seed
+    source "$INSTALL_DIR/opt/voice-notepad/.venv/bin/activate"
+
+    # Install dependencies using uv
+    uv pip install -r app/requirements.txt
+
+    deactivate 2>/dev/null || true
+
+    # Cache the venv for next time
+    echo "Caching venv for future builds..."
+    rm -rf "$CACHED_VENV"
+    cp -a "$INSTALL_DIR/opt/voice-notepad/.venv" "$CACHED_VENV"
+    echo "$CURRENT_HASH" > "$REQUIREMENTS_HASH_FILE"
+fi
 
 # Copy source files
 echo "Copying application files..."
@@ -163,9 +212,13 @@ EOF
 chmod 755 "$INSTALL_DIR/DEBIAN/postrm"
 
 # Build the package
-echo "Building .deb package..."
-deactivate 2>/dev/null || true
-dpkg-deb --build --root-owner-group "$INSTALL_DIR"
+if [ "$FAST_MODE" = true ]; then
+    echo "Building .deb package (fast mode - no compression)..."
+    dpkg-deb --build --root-owner-group -Z none "$INSTALL_DIR"
+else
+    echo "Building .deb package..."
+    dpkg-deb --build --root-owner-group "$INSTALL_DIR"
+fi
 
 # Move to output directory
 OUTPUT_DIR="$SCRIPT_DIR/dist"

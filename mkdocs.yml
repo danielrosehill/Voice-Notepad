@@ -29,6 +29,7 @@ theme:
 
 nav:
   - Home: index.md
+  - Screenshots: screenshots.md
   - Getting Started:
     - Installation: installation.md
     - Configuration: configuration.md
@@ -36,6 +37,10 @@ nav:
     - Basic Usage: usage.md
     - Features: features.md
     - Keyboard Shortcuts: shortcuts.md
+  - Technical:
+    - Audio Pipeline: audio-pipeline.md
+    - Multimodal vs ASR: multimodal-vs-asr.md
+    - Technology Stack: stack.md
   - Reference:
     - Cost Tracking: cost-tracking.md
     - Supported Models: models.md
@@ -57,3 +62,6 @@ extra:
   social:
     - icon: fontawesome/brands/github
       link: https://github.com/danielrosehill/Voice-Notepad
+
+extra_javascript:
+  - https://unpkg.com/mermaid@10/dist/mermaid.min.js

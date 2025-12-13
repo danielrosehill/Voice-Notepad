@@ -63,6 +63,8 @@ from .hotkeys import (
     HotkeyCapture,
     SUGGESTED_HOTKEYS,
     HOTKEY_DESCRIPTIONS,
+    HOTKEY_MODE_NAMES,
+    HOTKEY_MODE_DESCRIPTIONS,
 )
 from .cost_tracker import get_tracker
 from .history_widget import HistoryWidget
@@ -70,6 +72,7 @@ from .cost_widget import CostWidget
 from .analysis_widget import AnalysisWidget
 from .models_widget import ModelsWidget
 from .about_widget import AboutWidget
+from .mic_test_widget import MicTestWidget
 from .audio_feedback import get_feedback
 
 
@@ -267,25 +270,78 @@ class SettingsDialog(QDialog):
         info_label.setStyleSheet("color: #666; margin-bottom: 10px;")
         hotkeys_layout.addWidget(info_label)
 
-        hotkeys_form = QFormLayout()
+        # Hotkey mode selector
+        mode_layout = QFormLayout()
+        self.hotkey_mode_combo = QComboBox()
+        for mode_key, mode_name in HOTKEY_MODE_NAMES.items():
+            self.hotkey_mode_combo.addItem(mode_name, mode_key)
+        # Set current mode
+        current_mode = self.config.hotkey_mode
+        idx = self.hotkey_mode_combo.findData(current_mode)
+        if idx >= 0:
+            self.hotkey_mode_combo.setCurrentIndex(idx)
+        self.hotkey_mode_combo.currentIndexChanged.connect(self._update_hotkey_fields_visibility)
+        mode_layout.addRow("Shortcut Mode:", self.hotkey_mode_combo)
 
+        # Mode description label
+        self.mode_description = QLabel(HOTKEY_MODE_DESCRIPTIONS.get(current_mode, ""))
+        self.mode_description.setWordWrap(True)
+        self.mode_description.setStyleSheet("color: #888; font-style: italic; margin-bottom: 10px;")
+        mode_layout.addRow("", self.mode_description)
+
+        hotkeys_layout.addLayout(mode_layout)
+
+        # Container for mode-specific fields
+        self.hotkey_fields_container = QWidget()
+        self.hotkey_fields_layout = QFormLayout(self.hotkey_fields_container)
+        self.hotkey_fields_layout.setContentsMargins(0, 0, 0, 0)
+
+        # Tap-to-Toggle mode fields
+        self.tap_toggle_widgets = []
         self.hotkey_toggle = HotkeyEdit()
         self.hotkey_toggle.setText(self.config.hotkey_record_toggle.upper())
-        hotkeys_form.addRow("Record Toggle (Start/Stop):", self.hotkey_toggle)
+        self.tap_toggle_widgets.append(("Toggle Recording:", self.hotkey_toggle))
 
+        # Separate mode fields
+        self.separate_widgets = []
+        self.hotkey_start = HotkeyEdit()
+        self.hotkey_start.setText(self.config.hotkey_start.upper() if self.config.hotkey_start else "")
+        self.separate_widgets.append(("Start Recording:", self.hotkey_start))
+
+        self.hotkey_stop_discard = HotkeyEdit()
+        self.hotkey_stop_discard.setText(self.config.hotkey_stop_discard.upper() if self.config.hotkey_stop_discard else "")
+        self.separate_widgets.append(("Stop && Discard:", self.hotkey_stop_discard))
+
+        # PTT mode fields
+        self.ptt_widgets = []
+        self.hotkey_ptt = HotkeyEdit()
+        self.hotkey_ptt.setText(self.config.hotkey_ptt.upper() if self.config.hotkey_ptt else "")
+        self.ptt_widgets.append(("Push-to-Talk Key:", self.hotkey_ptt))
+
+        self.ptt_release_action = QComboBox()
+        self.ptt_release_action.addItem("Transcribe", "transcribe")
+        self.ptt_release_action.addItem("Discard", "discard")
+        release_idx = self.ptt_release_action.findData(self.config.ptt_release_action)
+        if release_idx >= 0:
+            self.ptt_release_action.setCurrentIndex(release_idx)
+        self.ptt_widgets.append(("On Key Release:", self.ptt_release_action))
+
+        # Stop & Transcribe - shared across modes (except PTT when set to transcribe on release)
         self.hotkey_stop_transcribe = HotkeyEdit()
         self.hotkey_stop_transcribe.setText(self.config.hotkey_stop_and_transcribe.upper())
-        hotkeys_form.addRow("Stop && Transcribe:", self.hotkey_stop_transcribe)
 
-        hotkeys_layout.addLayout(hotkeys_form)
+        hotkeys_layout.addWidget(self.hotkey_fields_container)
 
         # Suggested hotkeys button
-        suggest_btn = QPushButton("Use Suggested (F15, F16)")
+        suggest_btn = QPushButton("Use Suggested Hotkeys")
         suggest_btn.clicked.connect(self._use_suggested_hotkeys)
         hotkeys_layout.addWidget(suggest_btn)
 
         hotkeys_layout.addStretch()
         tabs.addTab(hotkeys_tab, "Hotkeys")
+
+        # Initial visibility update
+        self._update_hotkey_fields_visibility()
 
         # Note: Prompt options are now in the main Record tab for easier access
 
@@ -327,10 +383,58 @@ class SettingsDialog(QDialog):
         if idx >= 0:
             self.mic_combo.setCurrentIndex(idx)
 
+    def _update_hotkey_fields_visibility(self):
+        """Update which hotkey fields are visible based on selected mode."""
+        mode = self.hotkey_mode_combo.currentData()
+
+        # Update description
+        self.mode_description.setText(HOTKEY_MODE_DESCRIPTIONS.get(mode, ""))
+
+        # Clear existing widgets from layout
+        while self.hotkey_fields_layout.count():
+            item = self.hotkey_fields_layout.takeAt(0)
+            if item.widget():
+                item.widget().setParent(None)
+
+        # Add appropriate widgets based on mode
+        if mode == "tap_toggle":
+            for label, widget in self.tap_toggle_widgets:
+                self.hotkey_fields_layout.addRow(label, widget)
+            self.hotkey_fields_layout.addRow("Stop && Transcribe:", self.hotkey_stop_transcribe)
+
+        elif mode == "separate":
+            for label, widget in self.separate_widgets:
+                self.hotkey_fields_layout.addRow(label, widget)
+            self.hotkey_fields_layout.addRow("Stop && Transcribe:", self.hotkey_stop_transcribe)
+
+        elif mode == "ptt":
+            for label, widget in self.ptt_widgets:
+                self.hotkey_fields_layout.addRow(label, widget)
+            # Only show stop & transcribe if PTT release action is discard
+            # (otherwise transcribe happens automatically on release)
+            if self.ptt_release_action.currentData() == "discard":
+                self.hotkey_fields_layout.addRow("Stop && Transcribe:", self.hotkey_stop_transcribe)
+
+        # Connect PTT release action change to update visibility
+        try:
+            self.ptt_release_action.currentIndexChanged.disconnect(self._update_hotkey_fields_visibility)
+        except TypeError:
+            pass
+        self.ptt_release_action.currentIndexChanged.connect(self._update_hotkey_fields_visibility)
+
     def _use_suggested_hotkeys(self):
-        """Fill in the suggested hotkeys (F15, F16)."""
-        self.hotkey_toggle.setText(SUGGESTED_HOTKEYS["record_toggle"])
-        self.hotkey_stop_transcribe.setText(SUGGESTED_HOTKEYS["stop_and_transcribe"])
+        """Fill in the suggested hotkeys based on current mode."""
+        mode = self.hotkey_mode_combo.currentData()
+
+        if mode == "tap_toggle":
+            self.hotkey_toggle.setText(SUGGESTED_HOTKEYS["record_toggle"])
+            self.hotkey_stop_transcribe.setText(SUGGESTED_HOTKEYS["stop_and_transcribe"])
+        elif mode == "separate":
+            self.hotkey_start.setText(SUGGESTED_HOTKEYS["start"])
+            self.hotkey_stop_discard.setText(SUGGESTED_HOTKEYS["stop_discard"])
+            self.hotkey_stop_transcribe.setText(SUGGESTED_HOTKEYS["stop_and_transcribe"])
+        elif mode == "ptt":
+            self.hotkey_ptt.setText(SUGGESTED_HOTKEYS["ptt"])
 
     def save_settings(self):
         self.config.gemini_api_key = self.gemini_key.text()
@@ -340,9 +444,24 @@ class SettingsDialog(QDialog):
         self.config.selected_microphone = self.mic_combo.currentText()
         self.config.start_minimized = self.start_minimized.isChecked()
         self.config.sample_rate = int(self.sample_rate.currentText())
-        # Hotkeys (store lowercase for consistency)
+
+        # Hotkey mode and settings (store lowercase for consistency)
+        self.config.hotkey_mode = self.hotkey_mode_combo.currentData()
+
+        # Tap-to-Toggle mode hotkeys
         self.config.hotkey_record_toggle = self.hotkey_toggle.text().lower()
+
+        # Separate mode hotkeys
+        self.config.hotkey_start = self.hotkey_start.text().lower()
+        self.config.hotkey_stop_discard = self.hotkey_stop_discard.text().lower()
+
+        # PTT mode settings
+        self.config.hotkey_ptt = self.hotkey_ptt.text().lower()
+        self.config.ptt_release_action = self.ptt_release_action.currentData()
+
+        # Shared hotkey
         self.config.hotkey_stop_and_transcribe = self.hotkey_stop_transcribe.text().lower()
+
         # Storage settings
         self.config.vad_enabled = self.vad_enabled.isChecked()
         self.config.store_audio = self.store_audio.isChecked()
@@ -410,11 +529,15 @@ class MainWindow(QMainWindow):
 
         provider_layout.addWidget(QLabel("Provider:"))
         self.provider_combo = QComboBox()
-        self.provider_combo.addItems(["OpenRouter", "Gemini", "OpenAI", "Mistral"])
+        self.provider_combo.addItems(["Open Router", "Google", "OpenAI", "Mistral"])
         # Handle display name mapping for provider
-        provider_display = self.config.selected_provider.title()
-        if provider_display == "Openrouter":
-            provider_display = "OpenRouter"
+        provider_map = {
+            "openrouter": "Open Router",
+            "gemini": "Google",
+            "openai": "OpenAI",
+            "mistral": "Mistral",
+        }
+        provider_display = provider_map.get(self.config.selected_provider, self.config.selected_provider.title())
         self.provider_combo.setCurrentText(provider_display)
         self.provider_combo.currentTextChanged.connect(self.on_provider_changed)
         provider_layout.addWidget(self.provider_combo)
@@ -773,6 +896,10 @@ class MainWindow(QMainWindow):
         self.models_widget = ModelsWidget()
         self.tabs.addTab(self.models_widget, "Models")
 
+        # Mic Test tab
+        self.mic_test_widget = MicTestWidget()
+        self.tabs.addTab(self.mic_test_widget, "Mic Test")
+
         # About tab
         self.about_widget = AboutWidget()
         self.tabs.addTab(self.about_widget, "About")
@@ -922,28 +1049,89 @@ class MainWindow(QMainWindow):
         self.hotkey_listener.start()
 
     def _register_hotkeys(self):
-        """Register all configured hotkeys."""
-        # Use lambdas that post events to the main thread
-        if self.config.hotkey_record_toggle:
-            self.hotkey_listener.register(
-                "record_toggle",
-                self.config.hotkey_record_toggle,
-                lambda: QTimer.singleShot(0, self._hotkey_record_toggle)
-            )
+        """Register all configured hotkeys based on the selected mode."""
+        # Unregister all existing hotkeys first
+        for name in ["record_toggle", "stop_and_transcribe", "start", "stop_discard", "ptt"]:
+            self.hotkey_listener.unregister(name)
 
-        if self.config.hotkey_stop_and_transcribe:
-            self.hotkey_listener.register(
-                "stop_and_transcribe",
-                self.config.hotkey_stop_and_transcribe,
-                lambda: QTimer.singleShot(0, self._hotkey_stop_and_transcribe)
-            )
+        mode = self.config.hotkey_mode
+
+        if mode == "tap_toggle":
+            # Tap-to-Toggle mode: one key toggles start/stop
+            if self.config.hotkey_record_toggle:
+                self.hotkey_listener.register(
+                    "record_toggle",
+                    self.config.hotkey_record_toggle,
+                    lambda: QTimer.singleShot(0, self._hotkey_record_toggle)
+                )
+            if self.config.hotkey_stop_and_transcribe:
+                self.hotkey_listener.register(
+                    "stop_and_transcribe",
+                    self.config.hotkey_stop_and_transcribe,
+                    lambda: QTimer.singleShot(0, self._hotkey_stop_and_transcribe)
+                )
+
+        elif mode == "separate":
+            # Separate mode: different keys for start, stop/discard, stop/transcribe
+            if self.config.hotkey_start:
+                self.hotkey_listener.register(
+                    "start",
+                    self.config.hotkey_start,
+                    lambda: QTimer.singleShot(0, self._hotkey_start_only)
+                )
+            if self.config.hotkey_stop_discard:
+                self.hotkey_listener.register(
+                    "stop_discard",
+                    self.config.hotkey_stop_discard,
+                    lambda: QTimer.singleShot(0, self._hotkey_stop_discard)
+                )
+            if self.config.hotkey_stop_and_transcribe:
+                self.hotkey_listener.register(
+                    "stop_and_transcribe",
+                    self.config.hotkey_stop_and_transcribe,
+                    lambda: QTimer.singleShot(0, self._hotkey_stop_and_transcribe)
+                )
+
+        elif mode == "ptt":
+            # Push-to-Talk mode: hold to record, release to stop
+            if self.config.hotkey_ptt:
+                # Determine release action
+                if self.config.ptt_release_action == "transcribe":
+                    release_callback = lambda: QTimer.singleShot(0, self._hotkey_stop_and_transcribe)
+                else:
+                    release_callback = lambda: QTimer.singleShot(0, self._hotkey_stop_discard)
+
+                self.hotkey_listener.register(
+                    "ptt",
+                    self.config.hotkey_ptt,
+                    lambda: QTimer.singleShot(0, self._hotkey_start_only),
+                    release_callback=release_callback
+                )
+
+            # Also allow manual stop & transcribe if PTT release is set to discard
+            if self.config.ptt_release_action == "discard" and self.config.hotkey_stop_and_transcribe:
+                self.hotkey_listener.register(
+                    "stop_and_transcribe",
+                    self.config.hotkey_stop_and_transcribe,
+                    lambda: QTimer.singleShot(0, self._hotkey_stop_and_transcribe)
+                )
 
     def _hotkey_record_toggle(self):
-        """Handle global hotkey for toggling recording on/off."""
+        """Handle global hotkey for toggling recording on/off (tap-to-toggle mode)."""
         if self.recorder.is_recording:
             self.delete_recording()  # Stop and discard
         else:
             self.toggle_recording()  # Start recording
+
+    def _hotkey_start_only(self):
+        """Handle global hotkey for starting recording only."""
+        if not self.recorder.is_recording:
+            self.toggle_recording()
+
+    def _hotkey_stop_discard(self):
+        """Handle global hotkey for stop and discard."""
+        if self.recorder.is_recording:
+            self.delete_recording()
 
     def _hotkey_stop_and_transcribe(self):
         """Handle global hotkey for stop and transcribe."""
@@ -972,7 +1160,7 @@ class MainWindow(QMainWindow):
 
     def on_tab_changed(self, index: int):
         """Handle tab change - refresh data in the selected tab."""
-        # Tabs: 0=Record, 1=History, 2=Cost, 3=Analysis, 4=Models, 5=About
+        # Tabs: 0=Record, 1=History, 2=Cost, 3=Analysis, 4=Models, 5=Mic Test, 6=About
         if index == 1:  # History tab
             self.history_widget.refresh()
         elif index == 2:  # Cost tab
@@ -1045,9 +1233,16 @@ class MainWindow(QMainWindow):
 
         self.model_combo.blockSignals(False)
 
-    def on_provider_changed(self, provider: str):
+    def on_provider_changed(self, provider_display: str):
         """Handle provider change."""
-        self.config.selected_provider = provider.lower()
+        # Map display name back to internal name
+        display_to_internal = {
+            "Open Router": "openrouter",
+            "Google": "gemini",
+            "OpenAI": "openai",
+            "Mistral": "mistral",
+        }
+        self.config.selected_provider = display_to_internal.get(provider_display, provider_display.lower())
         self.update_model_combo()
         self._update_tier_buttons()
         save_config(self.config)
