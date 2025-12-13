@@ -1,12 +1,12 @@
-# Voice Notepad V3
+# Voice Notepad
 
-A PyQt6 desktop application for voice recording with AI-powered transcription and cleanup. Uses multimodal AI models (Gemini, OpenAI GPT-4o, Mistral Voxtral) to transcribe audio AND clean it up in a single pass.
+A PyQt6 desktop application for voice recording with AI-powered transcription and cleanup. Send audio directly to multimodal AI models (Gemini, OpenAI, Mistral) which transcribe and clean up your speech in a single pass—no separate ASR step required.
 
-## Background
+## How It Works
 
-Previous voice notepad iterations used a two-phase approach: speech-to-text (ASR) followed by LLM cleanup. Voice Notepad V3 consolidates this into a single phase by leveraging multimodal AI models that accept audio as an input modality. The audio is sent directly to the model along with a cleanup prompt, and the model returns cleaned, formatted text.
+Voice Notepad sends your audio recording directly to multimodal AI models along with a cleanup prompt. The model handles both transcription and text cleanup simultaneously, returning polished, formatted text.
 
-This approach:
+This single-pass approach:
 - Reduces latency (one API call instead of two)
 - Produces more contextually aware cleanup (the model "hears" the original audio)
 - Supports verbal instructions embedded in the recording (e.g., "delete that last part")
