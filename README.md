@@ -20,6 +20,10 @@
 [![Debian Package](https://img.shields.io/badge/Download-DEB-A81D33?style=flat-square&logo=debian)](https://github.com/danielrosehill/Voice-Notepad/releases)
 [![Tarball](https://img.shields.io/badge/Download-TAR.GZ-2D2D2D?style=flat-square&logo=gnu)](https://github.com/danielrosehill/Voice-Notepad/releases)
 
+### User Manual
+
+[![User Manual PDF](https://img.shields.io/badge/User%20Manual-PDF-EC1C24?style=for-the-badge&logo=adobeacrobatreader&logoColor=white)](docs/manuals/Voice-Notepad-User-Manual-v1.pdf)
+
 ---
 
 ![Voice Notepad](screenshots/1_3_0/composite-1.png)
@@ -262,11 +266,6 @@ mkdocs serve
 # Build static site
 mkdocs build
 ```
-
-## Documentation
-
-- **[User Manual (PDF)](docs/manuals/Voice-Notepad-User-Manual-v1.pdf)** - Comprehensive guide with screenshots
-- **[Online Documentation](docs/)** - MkDocs-based documentation
 
 ## Requirements
 
