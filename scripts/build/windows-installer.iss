@@ -3,6 +3,8 @@
 ;
 ; This script creates a Windows installer for Voice Notepad.
 ; It is used by the GitHub Actions workflow.
+;
+; SourceDir points to repository root (two levels up from this script)
 
 #define MyAppName "Voice Notepad"
 #define MyAppVersion GetEnv('APP_VERSION')
@@ -21,11 +23,13 @@ AppPublisherURL={#MyAppURL}
 AppSupportURL={#MyAppURL}/issues
 AppUpdatesURL={#MyAppURL}/releases
 
+; Set source directory to repository root
+SourceDir=..\..
+
 ; Installer settings
 DefaultDirName={autopf}\{#MyAppName}
 DefaultGroupName={#MyAppName}
 AllowNoIcons=yes
-; Note: Paths are relative to repository root (used by GitHub Actions)
 LicenseFile=LICENSE
 OutputDir=dist
 OutputBaseFilename=Voice-Notepad-{#MyAppVersion}-windows-x64-setup
