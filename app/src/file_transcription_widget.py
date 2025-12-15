@@ -15,9 +15,12 @@ from PyQt6.QtWidgets import (
     QApplication,
     QFrame,
     QProgressBar,
+    QComboBox,
 )
 from PyQt6.QtCore import Qt, QThread, pyqtSignal
 from PyQt6.QtGui import QFont, QDragEnterEvent, QDropEvent
+
+from .config import GEMINI_MODELS, OPENROUTER_MODELS
 
 from pydub import AudioSegment
 
@@ -151,9 +154,28 @@ class FileTranscriptionWidget(QWidget):
         layout.addWidget(title)
 
         # Description
-        desc = QLabel("Transcribe audio files using the same AI models as live recording.")
+        desc = QLabel("Transcribe audio files using AI models with confirmed file support.")
         desc.setStyleSheet("color: #666; font-size: 12px;")
         layout.addWidget(desc)
+
+        # Provider and model selection (limited to supported providers)
+        provider_layout = QHBoxLayout()
+
+        provider_layout.addWidget(QLabel("Provider:"))
+        self.provider_combo = QComboBox()
+        # Only providers confirmed to support file upload
+        self.provider_combo.addItems(["Gemini"])
+        self.provider_combo.currentTextChanged.connect(self._on_provider_changed)
+        provider_layout.addWidget(self.provider_combo)
+
+        provider_layout.addSpacing(20)
+
+        provider_layout.addWidget(QLabel("Model:"))
+        self.model_combo = QComboBox()
+        self._update_model_combo()
+        provider_layout.addWidget(self.model_combo, 1)
+
+        layout.addLayout(provider_layout)
 
         # File selection frame
         file_frame = QFrame()
@@ -299,6 +321,38 @@ class FileTranscriptionWidget(QWidget):
 
         layout.addLayout(bottom)
 
+    def _on_provider_changed(self, provider: str):
+        """Handle provider selection change."""
+        self._update_model_combo()
+
+    def _update_model_combo(self):
+        """Update model dropdown based on selected provider."""
+        self.model_combo.blockSignals(True)
+        self.model_combo.clear()
+
+        provider = self.provider_combo.currentText().lower()
+        if provider == "gemini":
+            models = GEMINI_MODELS
+        else:
+            models = GEMINI_MODELS  # Default fallback
+
+        for model_id, display_name in models:
+            self.model_combo.addItem(display_name, model_id)
+
+        self.model_combo.blockSignals(False)
+
+    def _get_selected_provider(self) -> str:
+        """Get the internal provider name."""
+        provider_display = self.provider_combo.currentText()
+        display_to_internal = {
+            "Gemini": "gemini",
+        }
+        return display_to_internal.get(provider_display, "gemini")
+
+    def _get_selected_model(self) -> str:
+        """Get the selected model ID."""
+        return self.model_combo.currentData() or "gemini-2.5-flash"
+
     def browse_file(self):
         """Open file browser to select audio file."""
         filter_parts = []
@@ -376,23 +430,18 @@ class FileTranscriptionWidget(QWidget):
 
         config = main_window.config
 
-        # Get API key and model for selected provider
-        provider = config.selected_provider
-        if provider == "openrouter":
-            api_key = config.openrouter_api_key
-            model = config.openrouter_model
-        elif provider == "gemini":
+        # Use File tab's own provider/model selection (limited to supported providers)
+        provider = self._get_selected_provider()
+        model = self._get_selected_model()
+
+        # Get API key for selected provider
+        if provider == "gemini":
             api_key = config.gemini_api_key
-            model = config.gemini_model
-        elif provider == "openai":
-            api_key = config.openai_api_key
-            model = config.openai_model
         else:
-            api_key = config.mistral_api_key
-            model = config.mistral_model
+            api_key = config.gemini_api_key  # Fallback to Gemini
 
         if not api_key:
-            self.status_label.setText(f"Missing API key for {provider.title()}")
+            self.status_label.setText(f"Missing API key for {provider.title()}. Set in Settings → API Keys")
             self.status_label.setStyleSheet("color: #dc3545;")
             return
 
@@ -436,19 +485,13 @@ class FileTranscriptionWidget(QWidget):
         """Handle completed transcription."""
         self.text_output.setMarkdown(result.text)
 
-        # Get provider/model info from parent
+        # Get provider/model info from File tab's own selection
+        provider = self._get_selected_provider()
+        model = self._get_selected_model()
+
+        # Get config for other settings
         main_window = self.window()
         config = main_window.config
-        provider = config.selected_provider
-
-        if provider == "openrouter":
-            model = config.openrouter_model
-        elif provider == "gemini":
-            model = config.gemini_model
-        elif provider == "openai":
-            model = config.openai_model
-        else:
-            model = config.mistral_model
 
         # Calculate cost
         final_cost = 0.0

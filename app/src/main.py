@@ -41,6 +41,7 @@ from PyQt6.QtWidgets import (
     QFileDialog,
     QRadioButton,
     QButtonGroup,
+    QGroupBox,
 )
 from PyQt6.QtCore import Qt, QThread, pyqtSignal, QTimer
 import time
@@ -50,7 +51,7 @@ from .config import (
     Config, load_config, save_config, load_env_keys,
     GEMINI_MODELS, OPENAI_MODELS, MISTRAL_MODELS, OPENROUTER_MODELS,
     MODEL_TIERS, PROMPT_COMPONENTS, build_cleanup_prompt,
-    FORMAT_TEMPLATES, FORMAT_DISPLAY_NAMES, FORMALITY_DISPLAY_NAMES, EMAIL_SIGNOFFS,
+    FORMAT_TEMPLATES, FORMAT_DISPLAY_NAMES, FORMALITY_DISPLAY_NAMES, VERBOSITY_DISPLAY_NAMES, EMAIL_SIGNOFFS,
 )
 from .audio_recorder import AudioRecorder
 from .transcription import get_client, TranscriptionResult
@@ -227,17 +228,91 @@ class SettingsDialog(QDialog):
 
         # Audio tab (microphone selection)
         audio_tab = QWidget()
-        audio_layout = QFormLayout(audio_tab)
+        audio_layout = QVBoxLayout(audio_tab)
 
-        self.mic_combo = QComboBox()
+        # Preferred Microphone section
+        preferred_group = QGroupBox("Preferred Microphone")
+        preferred_layout = QFormLayout(preferred_group)
+        self.preferred_mic_combo = QComboBox()
+
+        # Nickname with preset suggestions
+        nickname_container = QWidget()
+        nickname_layout = QVBoxLayout(nickname_container)
+        nickname_layout.setContentsMargins(0, 0, 0, 0)
+        nickname_layout.setSpacing(4)
+
+        self.preferred_mic_nickname = QLineEdit(self.config.preferred_mic_nickname)
+        self.preferred_mic_nickname.setPlaceholderText("e.g., Q2U, Studio Mic, Podcast Mic")
+        self.preferred_mic_nickname.setMaxLength(20)
+        nickname_layout.addWidget(self.preferred_mic_nickname)
+
+        # Preset nickname buttons
+        preset_layout = QHBoxLayout()
+        preset_label = QLabel("Quick presets:")
+        preset_label.setStyleSheet("font-size: 10px; color: #888;")
+        preset_layout.addWidget(preset_label)
+
+        preset_names = ["Gooseneck", "Lavalier", "Desktop", "Boundary", "Headset", "Shotgun"]
+        for name in preset_names:
+            btn = QPushButton(name)
+            btn.setMaximumWidth(80)
+            btn.setStyleSheet("font-size: 10px; padding: 2px 6px;")
+            btn.clicked.connect(lambda checked, n=name: self.preferred_mic_nickname.setText(n))
+            preset_layout.addWidget(btn)
+        preset_layout.addStretch()
+        nickname_layout.addLayout(preset_layout)
+
+        preferred_layout.addRow("Device:", self.preferred_mic_combo)
+        preferred_layout.addRow("Nickname:", nickname_container)
+        audio_layout.addWidget(preferred_group)
+
+        # Fallback Microphone section
+        fallback_group = QGroupBox("Fallback Microphone")
+        fallback_layout = QFormLayout(fallback_group)
+        self.fallback_mic_combo = QComboBox()
+
+        # Nickname with preset suggestions
+        fallback_nickname_container = QWidget()
+        fallback_nickname_layout = QVBoxLayout(fallback_nickname_container)
+        fallback_nickname_layout.setContentsMargins(0, 0, 0, 0)
+        fallback_nickname_layout.setSpacing(4)
+
+        self.fallback_mic_nickname = QLineEdit(self.config.fallback_mic_nickname)
+        self.fallback_mic_nickname.setPlaceholderText("e.g., H390, Backup Mic")
+        self.fallback_mic_nickname.setMaxLength(20)
+        fallback_nickname_layout.addWidget(self.fallback_mic_nickname)
+
+        # Preset nickname buttons
+        fallback_preset_layout = QHBoxLayout()
+        fallback_preset_label = QLabel("Quick presets:")
+        fallback_preset_label.setStyleSheet("font-size: 10px; color: #888;")
+        fallback_preset_layout.addWidget(fallback_preset_label)
+
+        for name in preset_names:
+            btn = QPushButton(name)
+            btn.setMaximumWidth(80)
+            btn.setStyleSheet("font-size: 10px; padding: 2px 6px;")
+            btn.clicked.connect(lambda checked, n=name: self.fallback_mic_nickname.setText(n))
+            fallback_preset_layout.addWidget(btn)
+        fallback_preset_layout.addStretch()
+        fallback_nickname_layout.addLayout(fallback_preset_layout)
+
+        fallback_layout.addRow("Device:", self.fallback_mic_combo)
+        fallback_layout.addRow("Nickname:", fallback_nickname_container)
+        audio_layout.addWidget(fallback_group)
+
+        # Populate mic combos
         self._refresh_microphones()
-        audio_layout.addRow("Microphone:", self.mic_combo)
 
+        # Sample rate
+        sample_layout = QFormLayout()
         self.sample_rate = QComboBox()
         self.sample_rate.addItems(["16000", "22050", "44100", "48000"])
         self.sample_rate.setCurrentText(str(self.config.sample_rate))
-        audio_layout.addRow("Sample Rate:", self.sample_rate)
+        sample_layout.addRow("Sample Rate:", self.sample_rate)
+        audio_layout.addLayout(sample_layout)
 
+        audio_layout.addStretch()
         tabs.addTab(audio_tab, "Audio")
 
         # Behavior tab
@@ -390,28 +465,31 @@ class SettingsDialog(QDialog):
 
     def _refresh_microphones(self):
         """Refresh the list of available microphones."""
-        self.mic_combo.clear()
         devices = self.recorder.get_input_devices()
+
+        # Populate preferred mic combo
+        self.preferred_mic_combo.clear()
+        self.preferred_mic_combo.addItem("(None - use fallback/default)", "")
         for idx, name in devices:
-            self.mic_combo.addItem(name, idx)
+            self.preferred_mic_combo.addItem(name, name)  # Store name as data
 
-        # Select previously used mic if available
-        if self.config.selected_microphone:
-            idx = self.mic_combo.findText(self.config.selected_microphone)
+        # Select previously configured preferred mic
+        if self.config.preferred_mic_name:
+            idx = self.preferred_mic_combo.findData(self.config.preferred_mic_name)
             if idx >= 0:
-                self.mic_combo.setCurrentIndex(idx)
-                return
+                self.preferred_mic_combo.setCurrentIndex(idx)
 
-        # Default to "pulse" which routes through PipeWire/PulseAudio
-        idx = self.mic_combo.findText("pulse")
-        if idx >= 0:
-            self.mic_combo.setCurrentIndex(idx)
-            return
+        # Populate fallback mic combo
+        self.fallback_mic_combo.clear()
+        self.fallback_mic_combo.addItem("(None - use system default)", "")
+        for idx, name in devices:
+            self.fallback_mic_combo.addItem(name, name)  # Store name as data
 
-        # Fallback to "default"
-        idx = self.mic_combo.findText("default")
-        if idx >= 0:
-            self.mic_combo.setCurrentIndex(idx)
+        # Select previously configured fallback mic
+        if self.config.fallback_mic_name:
+            idx = self.fallback_mic_combo.findData(self.config.fallback_mic_name)
+            if idx >= 0:
+                self.fallback_mic_combo.setCurrentIndex(idx)
 
     def _update_hotkey_fields_visibility(self):
         """Update which hotkey fields are visible based on selected mode."""
@@ -471,7 +549,13 @@ class SettingsDialog(QDialog):
         self.config.openai_api_key = self.openai_key.text()
         self.config.mistral_api_key = self.mistral_key.text()
         self.config.openrouter_api_key = self.openrouter_key.text()
-        self.config.selected_microphone = self.mic_combo.currentText()
+
+        # Microphone preferences with nicknames
+        self.config.preferred_mic_name = self.preferred_mic_combo.currentData() or ""
+        self.config.preferred_mic_nickname = self.preferred_mic_nickname.text().strip()
+        self.config.fallback_mic_name = self.fallback_mic_combo.currentData() or ""
+        self.config.fallback_mic_nickname = self.fallback_mic_nickname.text().strip()
+
         self.config.start_minimized = self.start_minimized.isChecked()
         self.config.sample_rate = int(self.sample_rate.currentText())
 
@@ -518,6 +602,7 @@ class MainWindow(QMainWindow):
         self.recording_duration = 0.0
         self.accumulated_segments: list[bytes] = []  # For append mode
         self.accumulated_duration: float = 0.0
+        self.append_mode: bool = False  # Track if next transcription should append
 
         self.setWindowTitle("Voice Notepad")
         self.setMinimumSize(480, 550)
@@ -757,6 +842,20 @@ class MainWindow(QMainWindow):
             format_tone_row.addWidget(radio)
         self.formality_group.buttonClicked.connect(self._on_formality_changed)
 
+        format_tone_row.addSpacing(20)
+
+        # Verbosity dropdown
+        format_tone_row.addWidget(QLabel("Verbosity:"))
+        self.verbosity_combo = QComboBox()
+        self.verbosity_combo.setMinimumWidth(100)
+        for verbosity_key in ["none", "minimum", "short", "medium", "maximum"]:
+            self.verbosity_combo.addItem(VERBOSITY_DISPLAY_NAMES[verbosity_key], verbosity_key)
+        idx = self.verbosity_combo.findData(self.config.verbosity_reduction)
+        if idx >= 0:
+            self.verbosity_combo.setCurrentIndex(idx)
+        self.verbosity_combo.currentIndexChanged.connect(self._on_verbosity_changed)
+        format_tone_row.addWidget(self.verbosity_combo)
+
         format_tone_row.addStretch()
         prompt_options_layout.addLayout(format_tone_row)
 
@@ -809,11 +908,11 @@ class MainWindow(QMainWindow):
 
         # Microphone indicator
         mic_layout = QHBoxLayout()
-        mic_icon = QLabel("🎤")
-        mic_icon.setStyleSheet("font-size: 14px;")
-        mic_layout.addWidget(mic_icon)
+        mic_question = QLabel("🎤 Where are you recording from?")
+        mic_question.setStyleSheet("color: #555; font-size: 12px; font-weight: bold;")
+        mic_layout.addWidget(mic_question)
         self.mic_label = QLabel()
-        self.mic_label.setStyleSheet("color: #555; font-size: 12px;")
+        self.mic_label.setStyleSheet("color: #007bff; font-size: 12px; font-weight: bold;")
         mic_layout.addWidget(self.mic_label)
         mic_layout.addStretch()
         layout.addLayout(mic_layout)
@@ -882,6 +981,7 @@ class MainWindow(QMainWindow):
         self.append_btn = QPushButton("Append")
         self.append_btn.setMinimumHeight(45)
         self.append_btn.setEnabled(False)
+        self.append_btn.setToolTip("Record and append more content to the current transcription")
         self.append_btn.setStyleSheet("""
             QPushButton {
                 background-color: #17a2b8;
@@ -899,7 +999,7 @@ class MainWindow(QMainWindow):
                 color: #aaa;
             }
         """)
-        self.append_btn.clicked.connect(self.append_recording)
+        self.append_btn.clicked.connect(self.append_to_transcription)
         controls.addWidget(self.append_btn)
 
         self.stop_btn = QPushButton("Transcribe")
@@ -1313,6 +1413,8 @@ class MainWindow(QMainWindow):
         self.text_output.setMarkdown(text)
         self.tabs.setCurrentIndex(0)  # Switch to Record tab
         self.update_word_count()
+        # Enable append button since we have text
+        self.append_btn.setEnabled(True)
 
     def save_to_file(self):
         """Save transcription to a file."""
@@ -1459,6 +1561,12 @@ class MainWindow(QMainWindow):
         self.config.formality_level = formality_key
         save_config(self.config)
 
+    def _on_verbosity_changed(self, index: int):
+        """Handle verbosity reduction selection change."""
+        verbosity_key = self.verbosity_combo.currentData()
+        self.config.verbosity_reduction = verbosity_key
+        save_config(self.config)
+
     def _on_email_settings_changed(self):
         """Handle email name/sign-off changes."""
         self.config.user_name = self.user_name_edit.text()
@@ -1471,27 +1579,40 @@ class MainWindow(QMainWindow):
         self.email_settings_frame.setVisible(is_email)
 
     def get_selected_microphone_index(self):
-        """Get the index of the configured microphone."""
+        """Get the index of the configured microphone.
+
+        Priority order:
+        1. Preferred microphone (if configured and available)
+        2. Fallback microphone (if configured and available)
+        3. "pulse" (routes through PipeWire/PulseAudio)
+        4. "default"
+        5. First available device
+        """
         devices = self.recorder.get_input_devices()
 
-        # Try to find configured mic
-        if self.config.selected_microphone:
+        # 1. Try preferred microphone first
+        if self.config.preferred_mic_name:
             for idx, name in devices:
-                if name == self.config.selected_microphone:
+                if name == self.config.preferred_mic_name:
                     return idx
 
-        # Default to "pulse" which routes through PipeWire/PulseAudio
-        # This picks up the system's default source (e.g., USB microphones)
+        # 2. Try fallback microphone
+        if self.config.fallback_mic_name:
+            for idx, name in devices:
+                if name == self.config.fallback_mic_name:
+                    return idx
+
+        # 3. Default to "pulse" which routes through PipeWire/PulseAudio
         for idx, name in devices:
             if name == "pulse":
                 return idx
 
-        # Fallback to "default" if pulse not available
+        # 4. Fallback to "default" if pulse not available
         for idx, name in devices:
             if name == "default":
                 return idx
 
-        # Fall back to first device
+        # 5. Fall back to first device
         if devices:
             return devices[0][0]
         return None
@@ -1499,10 +1620,12 @@ class MainWindow(QMainWindow):
     def toggle_recording(self):
         """Start or stop recording."""
         if not self.recorder.is_recording:
-            # Only clear text if no accumulated segments (new recording session)
-            if not self.accumulated_segments:
+            # Only clear text if not in append mode and no accumulated segments
+            if not self.append_mode and not self.accumulated_segments:
                 self.text_output.clear()
                 self.word_count_label.setText("")
+                # Reset append mode if starting fresh
+                self.append_mode = False
 
             # Set microphone from config
             mic_idx = self.get_selected_microphone_index()
@@ -1518,7 +1641,7 @@ class MainWindow(QMainWindow):
             self.record_btn.setText("● Recording")
             self.record_btn.setStyleSheet(self._record_btn_recording_style)
             self.pause_btn.setEnabled(True)
-            self.append_btn.setEnabled(True)
+            self.append_btn.setEnabled(False)  # Disable append while recording
             self.stop_btn.setEnabled(True)
             self.delete_btn.setEnabled(True)
             self.status_label.setText("Recording...")
@@ -1540,38 +1663,16 @@ class MainWindow(QMainWindow):
             self.status_label.setText("Paused")
             self.status_label.setStyleSheet("color: #ffc107; font-weight: bold;")
 
-    def append_recording(self):
-        """Stop current recording, save segment, and start a new recording."""
-        if not self.recorder.is_recording:
-            return
+    def append_to_transcription(self):
+        """Start a new recording that will be appended to the existing transcription."""
+        if self.recorder.is_recording:
+            return  # Already recording
 
-        # Stop current recording and get audio data
-        self.timer.stop()
-        audio_data = self.recorder.stop_recording()
+        # Enable append mode
+        self.append_mode = True
 
-        # Get duration of this segment
-        audio_info = get_audio_info(audio_data)
-        segment_duration = audio_info["duration_seconds"]
-
-        # Store the segment
-        self.accumulated_segments.append(audio_data)
-        self.accumulated_duration += segment_duration
-
-        # Update segment indicator
-        self._update_segment_indicator()
-
-        # Play a quick beep to indicate segment saved
-        feedback = get_feedback()
-        feedback.enabled = self.config.beep_on_record
-        feedback.play_stop_beep()
-
-        # Immediately start a new recording
-        self.recorder.start_recording()
-        self.timer.start(100)
-
-        # Brief status update
-        self.status_label.setText(f"Clip saved! Recording...")
-        self.status_label.setStyleSheet("color: #dc3545; font-weight: bold;")
+        # Start recording (will not clear text due to append_mode flag)
+        self.toggle_recording()
 
     def _update_segment_indicator(self):
         """Update the segment count display."""
@@ -1675,7 +1776,20 @@ class MainWindow(QMainWindow):
 
     def on_transcription_complete(self, result: TranscriptionResult):
         """Handle completed transcription."""
-        self.text_output.setMarkdown(result.text)
+        if self.append_mode:
+            # Append to existing text
+            existing_text = self.text_output.toPlainText()
+            if existing_text:
+                # Add a newline separator if there's existing content
+                combined_text = existing_text + "\n\n" + result.text
+                self.text_output.setMarkdown(combined_text)
+            else:
+                self.text_output.setMarkdown(result.text)
+            # Reset append mode
+            self.append_mode = False
+        else:
+            # Replace text (normal mode)
+            self.text_output.setMarkdown(result.text)
 
         # Get provider/model info
         provider = self.config.selected_provider
@@ -1744,6 +1858,10 @@ class MainWindow(QMainWindow):
         self._copy_to_clipboard_wayland(result.text)
 
         self.reset_ui()
+
+        # Enable append button now that we have a transcription
+        self.append_btn.setEnabled(True)
+
         self.status_label.setText("Copied!")
         self.status_label.setStyleSheet("color: #28a745; font-weight: bold;")
 
@@ -1821,60 +1939,82 @@ class MainWindow(QMainWindow):
 
     def _update_mic_display(self):
         """Update the microphone display label."""
-        mic_name = self._get_active_microphone_name()
-        self.mic_label.setText(mic_name)
-        self.mic_label.setToolTip(f"Active microphone: {mic_name}\nChange in Settings → Audio")
+        display_name, full_name = self._get_active_microphone_name()
+        self.mic_label.setText(display_name)
+        self.mic_label.setToolTip(f"Active microphone: {full_name}\nChange in Settings → Audio")
 
-    def _get_active_microphone_name(self) -> str:
-        """Get the name of the currently active microphone."""
+    def _get_active_microphone_name(self) -> tuple[str, str]:
+        """Get the name of the currently active microphone.
+
+        Returns:
+            Tuple of (display_name, full_name) where display_name may be a
+            nickname and full_name is always the device's actual name.
+        """
         import subprocess
 
-        # If user has selected a specific mic that's not "pulse" or "default"
-        if self.config.selected_microphone and self.config.selected_microphone not in ("pulse", "default"):
-            return self.config.selected_microphone
+        # Get the actual device name that will be/is being used
+        actual_device_name = None
 
-        # Query PipeWire/PulseAudio for the actual default source
-        try:
-            # Get the default source name
-            result = subprocess.run(
-                ["pactl", "get-default-source"],
-                capture_output=True, text=True, timeout=2
-            )
-            if result.returncode == 0:
-                source_name = result.stdout.strip()
-                if source_name:
-                    # Get the description for this source
-                    desc_result = subprocess.run(
-                        ["pactl", "list", "sources"],
-                        capture_output=True, text=True, timeout=2
-                    )
-                    if desc_result.returncode == 0:
-                        # Parse the output to find the description
-                        lines = desc_result.stdout.split('\n')
-                        found_source = False
-                        for line in lines:
-                            if f"Name: {source_name}" in line:
-                                found_source = True
-                            elif found_source and "Description:" in line:
-                                description = line.split("Description:", 1)[1].strip()
-                                return description
-                    # Fallback: clean up the source name
-                    # e.g., "alsa_input.usb-Samson_Technologies_Samson_Q2U_Microphone-00.analog-stereo"
-                    # Extract the meaningful part
-                    if "usb-" in source_name:
-                        # Extract device name from USB source
-                        parts = source_name.split("usb-")[1].split("-00")[0]
-                        return parts.replace("_", " ")
-                    return source_name
-        except Exception:
-            pass
-
-        # Fallback to checking devices
+        # Check which device is actually selected based on config
         devices = self.recorder.get_input_devices()
-        if devices:
-            return devices[0][1]
+        device_names = [name for _, name in devices]
 
-        return "No microphone found"
+        # Priority: preferred > fallback > pulse > default > first
+        if self.config.preferred_mic_name and self.config.preferred_mic_name in device_names:
+            actual_device_name = self.config.preferred_mic_name
+        elif self.config.fallback_mic_name and self.config.fallback_mic_name in device_names:
+            actual_device_name = self.config.fallback_mic_name
+        elif "pulse" in device_names or "default" in device_names:
+            # Query PipeWire/PulseAudio for the actual default source
+            try:
+                result = subprocess.run(
+                    ["pactl", "get-default-source"],
+                    capture_output=True, text=True, timeout=2
+                )
+                if result.returncode == 0:
+                    source_name = result.stdout.strip()
+                    if source_name:
+                        # Get the description for this source
+                        desc_result = subprocess.run(
+                            ["pactl", "list", "sources"],
+                            capture_output=True, text=True, timeout=2
+                        )
+                        if desc_result.returncode == 0:
+                            lines = desc_result.stdout.split('\n')
+                            found_source = False
+                            for line in lines:
+                                if f"Name: {source_name}" in line:
+                                    found_source = True
+                                elif found_source and "Description:" in line:
+                                    actual_device_name = line.split("Description:", 1)[1].strip()
+                                    break
+                        if not actual_device_name:
+                            # Fallback: clean up the source name
+                            if "usb-" in source_name:
+                                parts = source_name.split("usb-")[1].split("-00")[0]
+                                actual_device_name = parts.replace("_", " ")
+                            else:
+                                actual_device_name = source_name
+            except Exception:
+                pass
+
+        # Fallback to first device
+        if not actual_device_name and devices:
+            actual_device_name = devices[0][1]
+
+        if not actual_device_name:
+            return ("No microphone found", "No microphone found")
+
+        # Check if the actual device matches preferred or fallback mic
+        # If so, return the nickname (if set) as display name
+        if actual_device_name == self.config.preferred_mic_name:
+            if self.config.preferred_mic_nickname:
+                return (self.config.preferred_mic_nickname, actual_device_name)
+        elif actual_device_name == self.config.fallback_mic_name:
+            if self.config.fallback_mic_nickname:
+                return (self.config.fallback_mic_nickname, actual_device_name)
+
+        return (actual_device_name, actual_device_name)
 
     def reset_ui(self):
         """Reset UI to initial state.
@@ -1912,6 +2052,9 @@ class MainWindow(QMainWindow):
         self.accumulated_duration = 0.0
         self._update_segment_indicator()
 
+        # Reset append mode
+        self.append_mode = False
+
         self.reset_ui()
         self._set_tray_state('idle')
 
@@ -1926,6 +2069,9 @@ class MainWindow(QMainWindow):
         """Clear the transcription text."""
         self.text_output.clear()
         self.word_count_label.setText("")
+        # Disable append button when clearing
+        self.append_btn.setEnabled(False)
+        self.append_mode = False
 
     def _copy_to_clipboard_wayland(self, text: str):
         """Copy text to clipboard using wl-copy (Wayland-native)."""

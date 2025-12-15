@@ -83,9 +83,15 @@ class Config:
     openrouter_model: str = "google/gemini-2.5-flash"
 
     # Audio settings
-    # Default to "pulse" which routes through PipeWire/PulseAudio
+    # Legacy field - kept for backwards compatibility, migrated to preferred_mic_name
     selected_microphone: str = "pulse"
     sample_rate: int = 48000
+
+    # Microphone preferences with nicknames
+    preferred_mic_name: str = ""       # Device name (e.g., "Samson Q2U Microphone")
+    preferred_mic_nickname: str = ""   # User nickname (e.g., "Q2U")
+    fallback_mic_name: str = ""        # Fallback device name
+    fallback_mic_nickname: str = ""    # Fallback nickname
 
     # UI settings
     window_width: int = 500
@@ -138,6 +144,7 @@ class Config:
     # Format preset and formality settings
     format_preset: str = "general"      # general, email, todo, grocery, meeting_notes, bullet_points
     formality_level: str = "neutral"    # casual, neutral, professional
+    verbosity_reduction: str = "none"   # none, minimum, short, medium, maximum
 
     # Email signature settings (used when format_preset == "email")
     user_name: str = ""
@@ -155,7 +162,15 @@ def load_config() -> Config:
             # Filter to only known fields to handle schema changes gracefully
             known_fields = {f.name for f in Config.__dataclass_fields__.values()}
             filtered_data = {k: v for k, v in data.items() if k in known_fields}
-            return Config(**filtered_data)
+            config = Config(**filtered_data)
+
+            # Migration: copy selected_microphone to preferred_mic_name if not set
+            if config.selected_microphone and not config.preferred_mic_name:
+                # Only migrate non-default values (not "pulse" or "default")
+                if config.selected_microphone not in ("pulse", "default"):
+                    config.preferred_mic_name = config.selected_microphone
+
+            return config
         except (json.JSONDecodeError, TypeError) as e:
             print(f"Warning: Could not load config: {e}")
             pass
@@ -266,6 +281,24 @@ FORMALITY_DISPLAY_NAMES = {
     "professional": "Professional",
 }
 
+# Verbosity reduction templates
+VERBOSITY_TEMPLATES = {
+    "none": "",  # No verbosity reduction
+    "minimum": "Make the transcription slightly more concise while retaining all key information and context.",
+    "short": "Make the transcription concise and succinct, focusing on the main points while preserving important details.",
+    "medium": "Apply medium verbosity reduction: make the transcription significantly more concise, keeping only essential information and removing redundant details.",
+    "maximum": "Apply maximum verbosity reduction: make the transcription as concise as possible, keeping only the core message and key points. Be extremely succinct.",
+}
+
+# Display names for verbosity levels (for UI)
+VERBOSITY_DISPLAY_NAMES = {
+    "none": "None",
+    "minimum": "Minimum",
+    "short": "Short",
+    "medium": "Medium",
+    "maximum": "Maximum",
+}
+
 # Common email sign-offs for dropdown
 EMAIL_SIGNOFFS = [
     "Best regards",
@@ -298,6 +331,11 @@ def build_cleanup_prompt(config: Config) -> str:
     formality_template = FORMALITY_TEMPLATES.get(config.formality_level, "")
     if formality_template:
         lines.append(f"- {formality_template}")
+
+    # Add verbosity reduction instructions
+    verbosity_template = VERBOSITY_TEMPLATES.get(config.verbosity_reduction, "")
+    if verbosity_template:
+        lines.append(f"- {verbosity_template}")
 
     # Add email signature if format is email and user has configured their name
     if config.format_preset == "email" and config.user_name:
