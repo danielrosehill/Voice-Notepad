@@ -1,7 +1,5 @@
 # Voice Notepad 
 
-![alt text](graphics/vibe-coding-disclosure.png)
-
 ## Combined Transcription And Cleanup Desktop Utility Using Cloud Multimodal AI Models
 
 
@@ -12,9 +10,12 @@
 
 **Download:** [AppImage](https://github.com/danielrosehill/Voice-Notepad/releases) • [Windows Installer](https://github.com/danielrosehill/Voice-Notepad/releases) • [Debian .deb](https://github.com/danielrosehill/Voice-Notepad/releases) • [Tarball](https://github.com/danielrosehill/Voice-Notepad/releases)
 
+
+![alt text](screenshots/manual/1.png)
+
 ---
 
-![Voice Notepad](screenshots/1_3_0/composite-1.png)
+![alt text](graphics/vibe-coding-disclosure.png)
 
 ## Why Voice Notepad?
 
