@@ -1,4 +1,6 @@
-# Voice Notepad (Multimodal Cloud AI Transcription And Cleanup)
+# Voice Notepad 
+
+## Combined Transcription And Cleanup Desktop Utility Using Cloud Multimodal AI Models
 
 [![Linux](https://img.shields.io/badge/Linux-FCC624?style=flat-square&logo=linux&logoColor=black)](https://github.com/danielrosehill/Voice-Notepad/releases)
 [![Windows](https://img.shields.io/badge/Windows-0078D6?style=flat-square&logo=windows&logoColor=white)](https://github.com/danielrosehill/Voice-Notepad/releases)
