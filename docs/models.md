@@ -1,104 +1,48 @@
 # Supported Models
 
-Voice Notepad supports audio multimodal models from several providers. These models can directly process audio input for transcription.
+Voice Notepad supports audio multimodal models that can directly process audio input for transcription.
 
-## OpenRouter Models
+## OpenRouter
 
 OpenRouter provides access to multiple providers through a single API key.
 
-| Model ID | Provider | Tier | Notes |
-|----------|----------|------|-------|
-| `google/gemini-2.5-flash` | Gemini | Standard | Recommended default |
-| `google/gemini-2.5-flash-lite` | Gemini | Budget | Fastest/cheapest |
-| `google/gemini-2.0-flash-001` | Gemini | Standard | Previous generation |
-| `openai/gpt-4o-audio-preview` | OpenAI | Premium | Highest quality |
-| `mistralai/voxtral-small-24b-2507` | Mistral | Standard | Mistral's audio model |
+| Model | Tier | Notes |
+|-------|------|-------|
+| google/gemini-2.5-flash | Standard | Recommended default |
+| google/gemini-2.5-flash-lite | Budget | Fastest and cheapest |
+| google/gemini-2.0-flash-001 | Standard | Previous generation |
+| openai/gpt-4o-audio-preview | Premium | Highest quality |
+| mistralai/voxtral-small-24b-2507 | Standard | Mistral's audio model |
 
-## Gemini Models (Direct)
+## Gemini (Direct)
 
-Using the Gemini API directly:
+| Model | Tier | Notes |
+|-------|------|-------|
+| gemini-flash-latest | Dynamic | Always latest Flash |
+| gemini-2.5-flash | Standard | Stable release |
+| gemini-2.5-flash-lite | Budget | Lite version |
+| gemini-2.5-pro | Premium | Pro tier |
 
-| Model ID | Tier | Notes |
-|----------|------|-------|
-| `gemini-flash-latest` | Dynamic | Always latest Flash model |
-| `gemini-2.5-flash` | Standard | Stable release |
-| `gemini-2.5-flash-lite` | Budget | Lite version |
-| `gemini-2.5-pro` | Premium | Pro tier |
+## OpenAI (Direct)
 
-## OpenAI Models (Direct)
+| Model | Tier | Notes |
+|-------|------|-------|
+| gpt-4o-audio-preview | Premium | Full audio capabilities |
+| gpt-4o-mini-audio-preview | Budget | Faster and cheaper |
 
-Using the OpenAI API directly:
+## Mistral (Direct)
 
-| Model ID | Tier | Notes |
-|----------|------|-------|
-| `gpt-4o-audio-preview` | Premium | Full audio capabilities |
-| `gpt-4o-mini-audio-preview` | Budget | Smaller, faster |
-| `gpt-audio` | Premium | Alias for preview |
-| `gpt-audio-mini` | Budget | Alias for mini |
-
-## Mistral Models (Direct)
-
-Using the Mistral API directly:
-
-| Model ID | Tier | Notes |
-|----------|------|-------|
-| `voxtral-small-latest` | Standard | Standard Voxtral |
-| `voxtral-mini-latest` | Budget | Smaller/faster |
+| Model | Tier | Notes |
+|-------|------|-------|
+| voxtral-small-latest | Standard | Standard Voxtral |
+| voxtral-mini-latest | Budget | Smaller and faster |
 
 ## Choosing a Model
 
-### For Most Users
+For most users, OpenRouter with google/gemini-2.5-flash provides a good balance of quality and cost with fast processing.
 
-**Recommended**: OpenRouter with `google/gemini-2.5-flash`
+For lower costs, use Gemini Flash Lite variants.
 
-- Good balance of quality and cost
-- Fast processing
-- Accurate transcription
+For highest quality, use GPT-4o audio models.
 
-### For Budget-Conscious Users
-
-Use Gemini Flash Lite variants:
-
-- `google/gemini-2.5-flash-lite` (via OpenRouter)
-- `gemini-2.5-flash-lite` (direct)
-
-### For Highest Quality
-
-Use GPT-4o audio:
-
-- `openai/gpt-4o-audio-preview` (via OpenRouter)
-- `gpt-4o-audio-preview` (direct)
-
-## Model Tiers
-
-Models are categorized into tiers:
-
-| Tier | Characteristics |
-|------|-----------------|
-| **Premium** | Highest quality, higher cost |
-| **Standard** | Good balance of quality and cost |
-| **Budget** | Lower cost, still good quality |
-
-## Changing Models
-
-### Default Model
-
-Set your default model in **Settings > Models** for each provider.
-
-### Per-Transcription
-
-Select the model from the toolbar dropdown before recording.
-
-## Model Information
-
-The **Models** tab in the app shows:
-
-- Available models by provider
-- Model tier indicators
-- Current selection status
-
-## Adding New Models
-
-The model list is maintained in the app source. If a provider adds new audio-capable models, they can be added by updating `transcription.py`.
-
-For providers not yet supported, open an issue or PR on GitHub.
+Set your default model in Settings > Models, or select per-transcription from the toolbar dropdown.

@@ -1,54 +1,26 @@
-# Voice Notepad
+# Voice Notepad Documentation
 
-![Voice Notepad Screenshot](../screenshots/v1/image.png)
+Voice Notepad is a desktop application that uses multimodal AI models for single-pass transcription and cleanup. See the [README](../README.md) for an overview and quick start guide.
 
-Voice Notepad is a desktop application that offers multimodal audio models for single-operation transcription and light text cleanup. Unlike traditional ASR + LLM pipelines, this app sends audio directly to AI models that handle both transcription and cleanup in a single pass.
+## Getting Started
 
-## Key Features
+- [Installation](installation.md) - Download and setup
+- [Configuration](configuration.md) - API keys and settings
 
-- **One-shot transcription + cleanup** - Audio is sent with a cleanup prompt to multimodal models
-- **Multiple AI providers** - OpenRouter (recommended), Gemini, OpenAI, and Mistral
-- **Cost tracking** - Monitor API spend with accurate usage data
-- **Transcript history** - SQLite database stores all transcriptions
-- **Voice Activity Detection** - Optional silence removal before API upload
-- **Global hotkeys** - System-wide shortcuts for hands-free operation
+## Reference
 
-## Why Multimodal?
+- [Shortcuts](shortcuts.md) - Keyboard shortcuts and global hotkeys
+- [Models](models.md) - Available AI models by provider
+- [Cost Tracking](cost-tracking.md) - Monitoring API spend
+- [Troubleshooting](troubleshooting.md) - Common issues and solutions
 
-Traditional speech-to-text workflows require two steps:
+## Technical
 
-1. ASR (Automatic Speech Recognition) to convert audio to text
-2. LLM pass to clean up the raw transcription
+- [Audio Pipeline](audio-pipeline.md) - How audio is processed before transcription
+- [Technology Stack](stack.md) - Libraries and dependencies
+- [Multimodal vs ASR](multimodal-vs-asr.md) - Why this approach differs from traditional speech-to-text
 
-Voice Notepad uses **audio multimodal models** that can directly process audio input. This single-pass approach:
+## Resources
 
-- Reduces latency (one API call instead of two)
-- Produces more contextually aware cleanup (the model "hears" the original audio)
-- Supports verbal instructions embedded in the recording (e.g., "delete that last part")
-
-## Supported Providers
-
-| Provider | Description |
-|----------|-------------|
-| **OpenRouter** (Recommended) | Access multiple models (Gemini, GPT-4o, Voxtral) through a single API key with accurate cost tracking |
-| Gemini | Direct Google AI access |
-| OpenAI | GPT-4o audio models |
-| Mistral | Voxtral speech models |
-
-## Quick Start
-
-```bash
-# Clone the repository
-git clone https://github.com/danielrosehill/Voice-Notepad.git
-cd Voice-Notepad
-
-# Run the app
-./run.sh
-```
-
-See the [Installation](installation.md) guide for detailed setup instructions.
-
-## Related Projects
-
-- [Audio-Multimodal-AI-Resources](https://github.com/danielrosehill/Audio-Multimodal-AI-Resources) - Curated list of audio-capable multimodal AI models and APIs
-- [Audio-Understanding-Test-Prompts](https://github.com/danielrosehill/Audio-Understanding-Test-Prompts) - Test prompts for evaluating audio understanding capabilities
+- [Screenshots](screenshots.md) - Application screenshots
+- [User Manual (PDF)](manuals/Voice-Notepad-User-Manual-v1.pdf) - Complete guide
