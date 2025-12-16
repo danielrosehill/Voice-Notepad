@@ -2952,6 +2952,18 @@ class MainWindow(QMainWindow):
 
     def delete_recording(self):
         """Delete current recording and any accumulated segments."""
+        # Show confirmation dialog
+        reply = QMessageBox.question(
+            self,
+            "Delete Recording",
+            "Are you sure you want to delete this recording?\n\nThis cannot be undone.",
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+            QMessageBox.StandardButton.No,
+        )
+
+        if reply != QMessageBox.StandardButton.Yes:
+            return
+
         # Play stop beep when discarding
         if self.recorder.is_recording or self.recorder.is_paused:
             feedback = get_feedback()

@@ -72,10 +72,6 @@ sed -i "s/^version = \".*\"/version = \"$NEW_VERSION\"/" pyproject.toml
 echo "Updated pyproject.toml"
 
 echo ""
-echo "=== Taking Screenshots ==="
-"$SCRIPT_DIR/screenshots.sh"
-
-echo ""
 echo "=== Building Packages ==="
 
 if [ "$DEB_ONLY" = true ]; then
