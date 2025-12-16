@@ -4,11 +4,21 @@ Uses pynput for cross-platform global hotkey support.
 On Wayland, this works via XWayland compatibility layer.
 """
 
+import logging
+import os
 import threading
 import time
 from concurrent.futures import ThreadPoolExecutor
 from typing import Callable, Dict, Optional
 from pynput import keyboard
+
+# Debug logging for hotkeys (enable with VOICE_NOTEPAD_DEBUG_HOTKEYS=1)
+_debug_hotkeys = os.environ.get("VOICE_NOTEPAD_DEBUG_HOTKEYS", "").lower() in ("1", "true", "yes")
+logger = logging.getLogger(__name__)
+if _debug_hotkeys:
+    logging.basicConfig(level=logging.DEBUG)
+    logger.setLevel(logging.DEBUG)
+    logger.debug("Hotkey debug logging enabled")
 
 
 # Debounce settings
@@ -62,6 +72,12 @@ KEY_MAP = {
     "media_play_pause": keyboard.Key.media_play_pause,
     "media_next": keyboard.Key.media_next,
     "media_previous": keyboard.Key.media_previous,
+    # Lock keys
+    "pause": keyboard.Key.pause,
+    "scroll_lock": keyboard.Key.scroll_lock,
+    "num_lock": keyboard.Key.num_lock,
+    "caps_lock": keyboard.Key.caps_lock,
+    "print_screen": keyboard.Key.print_screen,
 }
 
 # Reverse mapping for display
@@ -177,13 +193,24 @@ class GlobalHotkeyListener:
     def start(self):
         """Start listening for global hotkeys."""
         if self.listener is not None:
+            if _debug_hotkeys:
+                logger.debug("Listener already running")
             return
+
+        if _debug_hotkeys:
+            logger.debug("Starting global hotkey listener...")
+            logger.debug(f"  Registered hotkeys: {list(self.hotkeys.keys())}")
+            for name, keys in self.hotkeys.items():
+                logger.debug(f"    {name}: {keys}")
 
         self.listener = keyboard.Listener(
             on_press=self._on_press,
             on_release=self._on_release
         )
         self.listener.start()
+
+        if _debug_hotkeys:
+            logger.debug(f"  Listener started: {self.listener.is_alive()}")
 
     def stop(self):
         """Stop listening for global hotkeys."""
@@ -206,9 +233,16 @@ class GlobalHotkeyListener:
 
     def _on_press(self, key):
         """Handle key press events."""
+        if _debug_hotkeys:
+            logger.debug(f"Key press: {key} (type: {type(key).__name__}, vk: {getattr(key, 'vk', 'N/A')})")
+
         # Normalize the key
         normalized = self._normalize_key(key)
         self.pressed_keys.add(normalized)
+
+        if _debug_hotkeys:
+            logger.debug(f"  Normalized: {normalized}")
+            logger.debug(f"  pressed_keys: {self.pressed_keys}")
 
         # Check if any hotkey combination is pressed
         with self._lock:
@@ -216,17 +250,23 @@ class GlobalHotkeyListener:
                 # Only trigger if not already active (prevent repeat triggers while held)
                 if name not in self.active_hotkeys:
                     if hotkey_keys and hotkey_keys.issubset(self.pressed_keys):
+                        if _debug_hotkeys:
+                            logger.debug(f"  Hotkey matched: {name}")
                         self.active_hotkeys.add(name)
                         callback = self.callbacks.get(name)
                         if callback:
                             # Debounce check (outside lock to avoid contention)
                             if not self._should_debounce(name):
+                                if _debug_hotkeys:
+                                    logger.debug(f"  Executing callback for {name}")
                                 # Use thread pool instead of spawning new threads
                                 try:
                                     self._executor.submit(callback)
                                 except RuntimeError:
                                     # Executor shut down, ignore
                                     pass
+                            elif _debug_hotkeys:
+                                logger.debug(f"  Debounced: {name}")
 
     def _on_release(self, key):
         """Handle key release events."""
@@ -258,25 +298,27 @@ class GlobalHotkeyListener:
         # Handle modifier keys specially
         if hasattr(key, "vk"):
             vk = key.vk
-            # Map left/right modifiers to generic ones
-            if vk in (65505, 65506):  # Left/Right Shift (X11)
-                return keyboard.Key.shift
-            if vk in (65507, 65508):  # Left/Right Ctrl (X11)
-                return keyboard.Key.ctrl
-            if vk in (65513, 65514):  # Left/Right Alt (X11)
-                return keyboard.Key.alt
-            # F13-F24 handling - Windows VK codes: 124-135
-            if 124 <= vk <= 135:
-                f_num = vk - 111
-                key_name = f"f{f_num}"
-                if key_name in KEY_MAP:
-                    return KEY_MAP[key_name]
-            # F13-F24 handling - Linux X11 keysyms: 65482-65493
-            if 65482 <= vk <= 65493:
-                f_num = vk - 65469  # 65482 - 65469 = 13, so F13
-                key_name = f"f{f_num}"
-                if key_name in KEY_MAP:
-                    return KEY_MAP[key_name]
+            # Some keys have vk=None, skip vk-based normalization for those
+            if vk is not None:
+                # Map left/right modifiers to generic ones
+                if vk in (65505, 65506):  # Left/Right Shift (X11)
+                    return keyboard.Key.shift
+                if vk in (65507, 65508):  # Left/Right Ctrl (X11)
+                    return keyboard.Key.ctrl
+                if vk in (65513, 65514):  # Left/Right Alt (X11)
+                    return keyboard.Key.alt
+                # F13-F24 handling - Windows VK codes: 124-135
+                if 124 <= vk <= 135:
+                    f_num = vk - 111
+                    key_name = f"f{f_num}"
+                    if key_name in KEY_MAP:
+                        return KEY_MAP[key_name]
+                # F13-F24 handling - Linux X11 keysyms: 65482-65493
+                if 65482 <= vk <= 65493:
+                    f_num = vk - 65469  # 65482 - 65469 = 13, so F13
+                    key_name = f"f{f_num}"
+                    if key_name in KEY_MAP:
+                        return KEY_MAP[key_name]
         return key
 
 

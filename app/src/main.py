@@ -1981,18 +1981,18 @@ class MainWindow(QMainWindow):
         - F19: Append (start new recording to append to cache)
         """
         # Unregister all existing hotkeys first
-        for name in ["f15_toggle", "f16_tap", "f17_transcribe", "f18_delete", "f19_append"]:
+        for name in ["pause_toggle", "f16_tap", "f17_transcribe", "f18_delete", "f19_append"]:
             self.hotkey_listener.unregister(name)
 
-        # Register fixed F-key hotkeys (always active, ignoring config mode)
-        # F15: Toggle recording
+        # Register hotkeys
+        # Pause: Start recording (press 1) or Stop & Transcribe (press 2)
         self.hotkey_listener.register(
-            "f15_toggle",
-            "f15",
-            lambda: QTimer.singleShot(0, self._hotkey_toggle_recording)
+            "pause_toggle",
+            "pause",
+            lambda: QTimer.singleShot(0, self._hotkey_record_or_transcribe)
         )
 
-        # F16: Tap (same as F15 toggle)
+        # F16: Tap (same as Pause toggle)
         self.hotkey_listener.register(
             "f16_tap",
             "f16",
@@ -2019,6 +2019,15 @@ class MainWindow(QMainWindow):
             "f19",
             lambda: QTimer.singleShot(0, self._hotkey_append)
         )
+
+    def _hotkey_record_or_transcribe(self):
+        """Handle Pause: Press 1 = Start recording, Press 2 = Stop & Transcribe."""
+        if self.recorder.is_recording:
+            # Already recording, so stop and transcribe
+            self.stop_and_transcribe()
+        else:
+            # Not recording, so start recording
+            self.toggle_recording()
 
     def _hotkey_toggle_recording(self):
         """Handle F15/F16: Toggle recording on/off (caches audio when stopped)."""

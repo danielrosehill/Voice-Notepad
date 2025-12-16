@@ -70,7 +70,12 @@ cd Voice-Notepad
 ./run.sh
 ```
 
-The script creates a virtual environment and installs dependencies automatically.
+The script creates a virtual environment using `uv` (fast Python package manager) and installs dependencies automatically.
+
+**Note:** Requires `uv` to be installed. Install with:
+```bash
+curl -LsSf https://astral.sh/uv/install.sh | sh
+```
 
 ### Development Workflow
 
