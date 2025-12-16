@@ -57,7 +57,7 @@ from .audio_recorder import AudioRecorder
 from .transcription import get_client, TranscriptionResult
 from .audio_processor import compress_audio_for_api, archive_audio, get_audio_info, combine_wav_segments
 from .markdown_widget import MarkdownTextWidget
-from .database import get_db, AUDIO_ARCHIVE_DIR
+from .database_mongo import get_db, AUDIO_ARCHIVE_DIR
 from .vad_processor import remove_silence, is_vad_available
 from .hotkeys import (
     GlobalHotkeyListener,
@@ -77,6 +77,7 @@ from .about_widget import AboutWidget
 from .mic_test_widget import MicTestWidget
 from .audio_feedback import get_feedback
 from .file_transcription_widget import FileTranscriptionWidget
+from .mic_naming_ai import MicrophoneNamingAI
 
 
 class HotkeyEdit(QLineEdit):
@@ -305,6 +306,22 @@ class SettingsDialog(QDialog):
         # Populate mic combos
         self._refresh_microphones()
 
+        # AI Microphone Naming
+        ai_naming_container = QWidget()
+        ai_naming_layout = QHBoxLayout(ai_naming_container)
+        ai_naming_layout.setContentsMargins(0, 10, 0, 10)
+
+        ai_name_btn = QPushButton("🤖 AI Name Microphones")
+        ai_name_btn.setToolTip(
+            "Use AI to generate friendly nicknames for all detected microphones.\n"
+            "Requires OpenRouter API key."
+        )
+        ai_name_btn.clicked.connect(self._ai_name_microphones)
+        ai_naming_layout.addWidget(ai_name_btn)
+        ai_naming_layout.addStretch()
+
+        audio_layout.addWidget(ai_naming_container)
+
         # Sample rate
         sample_layout = QFormLayout()
         self.sample_rate = QComboBox()
@@ -359,6 +376,14 @@ class SettingsDialog(QDialog):
             "Useful for confirming hotkey actions."
         )
         behavior_layout.addRow("Beep on record start/stop:", self.beep_on_record)
+
+        self.beep_on_clipboard = QCheckBox()
+        self.beep_on_clipboard.setChecked(self.config.beep_on_clipboard)
+        self.beep_on_clipboard.setToolTip(
+            "Play a quick triple beep when text is copied to clipboard.\n"
+            "Lets you know the text is ready to paste."
+        )
+        behavior_layout.addRow("Beep on clipboard copy:", self.beep_on_clipboard)
 
         tabs.addTab(behavior_tab, "Behavior")
 
@@ -631,6 +656,98 @@ class SettingsDialog(QDialog):
             if idx >= 0:
                 self.fallback_mic_combo.setCurrentIndex(idx)
 
+    def _ai_name_microphones(self):
+        """Use AI to generate friendly nicknames for all detected microphones."""
+        # Check for OpenRouter API key
+        api_key = self.config.openrouter_api_key or os.environ.get("OPENROUTER_API_KEY", "")
+        if not api_key:
+            QMessageBox.warning(
+                self,
+                "API Key Required",
+                "OpenRouter API key is required for AI microphone naming.\n\n"
+                "Please add your OpenRouter API key in the API Keys tab.",
+            )
+            return
+
+        # Get all detected microphones
+        devices = self.recorder.get_input_devices()
+        if not devices:
+            QMessageBox.information(
+                self,
+                "No Microphones",
+                "No microphones detected.",
+            )
+            return
+
+        # Show progress message
+        progress_msg = QMessageBox(self)
+        progress_msg.setWindowTitle("Naming Microphones")
+        progress_msg.setText("AI is generating friendly names for your microphones...")
+        progress_msg.setStandardButtons(QMessageBox.StandardButton.NoButton)
+        progress_msg.show()
+        QApplication.processEvents()
+
+        try:
+            # Extract device names only
+            device_names = [name for _, name in devices]
+
+            # Use AI to generate nicknames
+            ai = MicrophoneNamingAI(api_key)
+            nicknames = ai.generate_nicknames_batch(device_names)
+
+            progress_msg.close()
+
+            if not nicknames:
+                QMessageBox.warning(
+                    self,
+                    "Naming Failed",
+                    "Failed to generate microphone nicknames. Please try again.",
+                )
+                return
+
+            # Build result message
+            result_lines = ["AI has suggested the following names:\n"]
+            for device_name, nickname in nicknames.items():
+                result_lines.append(f"• {device_name}")
+                result_lines.append(f"  → {nickname}\n")
+
+            result_lines.append("\nWould you like to apply these nicknames?")
+            result_text = "\n".join(result_lines)
+
+            # Ask for confirmation
+            reply = QMessageBox.question(
+                self,
+                "Apply AI Names?",
+                result_text,
+                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+                QMessageBox.StandardButton.Yes,
+            )
+
+            if reply == QMessageBox.StandardButton.Yes:
+                # Apply nicknames to config
+                # Set preferred mic nickname if it's in the results
+                if self.config.preferred_mic_name in nicknames:
+                    self.preferred_mic_nickname.setText(nicknames[self.config.preferred_mic_name])
+
+                # Set fallback mic nickname if it's in the results
+                if self.config.fallback_mic_name in nicknames:
+                    self.fallback_mic_nickname.setText(nicknames[self.config.fallback_mic_name])
+
+                QMessageBox.information(
+                    self,
+                    "Names Applied",
+                    "AI-generated nicknames have been applied to your configured microphones.\n\n"
+                    "Click 'Save' to save the changes.",
+                )
+
+        except Exception as e:
+            progress_msg.close()
+            QMessageBox.critical(
+                self,
+                "Error",
+                f"Error generating microphone names: {e}",
+            )
+
     def _update_hotkey_fields_visibility(self):
         """Update which hotkey fields are visible based on selected mode."""
         mode = self.hotkey_mode_combo.currentData()
@@ -770,6 +887,7 @@ class SettingsDialog(QDialog):
         self.config.store_audio = self.store_audio.isChecked()
         # Audio feedback
         self.config.beep_on_record = self.beep_on_record.isChecked()
+        self.config.beep_on_clipboard = self.beep_on_clipboard.isChecked()
 
         # Personalization settings
         self.config.user_name = self.user_name.text().strip()
@@ -1573,11 +1691,11 @@ class MainWindow(QMainWindow):
         self.tabs.addTab(record_tab, "Record")
 
         # File Transcription tab (right after Record)
-        self.file_transcription_widget = FileTranscriptionWidget()
+        self.file_transcription_widget = FileTranscriptionWidget(config=self.config)
         self.tabs.addTab(self.file_transcription_widget, "File")
 
         # History tab
-        self.history_widget = HistoryWidget()
+        self.history_widget = HistoryWidget(config=self.config)
         self.history_widget.transcription_selected.connect(self.on_history_transcription_selected)
         self.tabs.addTab(self.history_widget, "History")
 
@@ -2559,6 +2677,11 @@ class MainWindow(QMainWindow):
         # Auto-copy to clipboard (using wl-copy for Wayland)
         self._copy_to_clipboard_wayland(result.text)
 
+        # Play clipboard beep
+        feedback = get_feedback()
+        feedback.enabled = self.config.beep_on_clipboard
+        feedback.play_clipboard_beep()
+
         self.reset_ui()
 
         # Enable append button now that we have a transcription
@@ -2807,6 +2930,12 @@ class MainWindow(QMainWindow):
         text = self.text_output.toPlainText()
         if text:
             self._copy_to_clipboard_wayland(text)
+
+            # Play clipboard beep
+            feedback = get_feedback()
+            feedback.enabled = self.config.beep_on_clipboard
+            feedback.play_clipboard_beep()
+
             self.status_label.setText("Copied!")
             self.status_label.setStyleSheet("color: #28a745;")
             QTimer.singleShot(2000, lambda: self.status_label.setText("Ready"))

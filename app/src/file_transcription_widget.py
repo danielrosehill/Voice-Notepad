@@ -20,7 +20,7 @@ from PyQt6.QtWidgets import (
 from PyQt6.QtCore import Qt, QThread, pyqtSignal, QSize
 from PyQt6.QtGui import QFont, QDragEnterEvent, QDropEvent, QIcon
 
-from .config import GEMINI_MODELS, OPENROUTER_MODELS, OPENAI_MODELS, MISTRAL_MODELS
+from .config import GEMINI_MODELS, OPENROUTER_MODELS, OPENAI_MODELS, MISTRAL_MODELS, Config
 
 from pydub import AudioSegment
 
@@ -28,7 +28,8 @@ from .audio_processor import compress_audio_for_api, archive_audio, get_audio_in
 from .vad_processor import remove_silence, is_vad_available
 from .transcription import get_client, TranscriptionResult
 from .markdown_widget import MarkdownTextWidget
-from .database import get_db, AUDIO_ARCHIVE_DIR
+from .audio_feedback import get_feedback
+from .database_mongo import get_db, AUDIO_ARCHIVE_DIR
 
 
 # Supported audio formats (pydub + ffmpeg)
@@ -132,8 +133,9 @@ class FileTranscriptionWidget(QWidget):
     # Signal to request config from main window
     config_requested = pyqtSignal()
 
-    def __init__(self, parent=None):
+    def __init__(self, config: Config = None, parent=None):
         super().__init__(parent)
+        self.config = config
         self.selected_file: Optional[str] = None
         self.worker: Optional[FileTranscriptionWorker] = None
         self.last_audio_duration: Optional[float] = None
@@ -678,6 +680,12 @@ class FileTranscriptionWidget(QWidget):
         except Exception:
             clipboard = QApplication.clipboard()
             clipboard.setText(text)
+
+        # Play clipboard beep
+        if self.config:
+            feedback = get_feedback()
+            feedback.enabled = self.config.beep_on_clipboard
+            feedback.play_clipboard_beep()
 
     # Drag and drop support
     def dragEnterEvent(self, event: QDragEnterEvent):

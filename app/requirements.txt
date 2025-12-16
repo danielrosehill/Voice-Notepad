@@ -9,3 +9,5 @@ markdown>=3.5.0
 pynput>=1.7.6
 onnxruntime>=1.16.0
 httpx>=0.27.0
+requests>=2.31.0
+mongita>=1.2.0

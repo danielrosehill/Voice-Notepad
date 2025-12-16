@@ -18,7 +18,9 @@ from PyQt6.QtWidgets import (
 from PyQt6.QtCore import Qt, pyqtSignal
 from PyQt6.QtGui import QFont
 
-from .database import get_db, TranscriptionRecord
+from .database_mongo import get_db, TranscriptionRecord
+from .audio_feedback import get_feedback
+from .config import Config
 
 
 class TranscriptItem(QFrame):
@@ -134,8 +136,9 @@ class HistoryWidget(QWidget):
 
     transcription_selected = pyqtSignal(str)  # Emitted when user wants to load transcript
 
-    def __init__(self, parent=None):
+    def __init__(self, config: Config = None, parent=None):
         super().__init__(parent)
+        self.config = config
         self.current_search = ""
         self.current_offset = 0
         self.page_size = 20
@@ -443,6 +446,13 @@ class HistoryWidget(QWidget):
         """Copy transcript to clipboard."""
         clipboard = QApplication.clipboard()
         clipboard.setText(text)
+
+        # Play clipboard beep
+        if self.config:
+            feedback = get_feedback()
+            feedback.enabled = self.config.beep_on_clipboard
+            feedback.play_clipboard_beep()
+
         self.status_label.setText("Copied to clipboard!")
 
     def _on_item_selected(self, record: TranscriptionRecord):
@@ -471,6 +481,13 @@ class HistoryWidget(QWidget):
         if self.selected_record:
             clipboard = QApplication.clipboard()
             clipboard.setText(self.selected_record.transcript_text)
+
+            # Play clipboard beep
+            if self.config:
+                feedback = get_feedback()
+                feedback.enabled = self.config.beep_on_clipboard
+                feedback.play_clipboard_beep()
+
             self.status_label.setText("Copied to clipboard!")
 
     def _on_load_to_editor(self):

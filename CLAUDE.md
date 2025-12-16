@@ -385,6 +385,54 @@ When modifying transcription providers:
 3. Check markdown formatting in output
 4. Confirm audio compression is working
 
+## FAQ
+
+### When are UI parameters applied?
+
+**All UI parameters are captured at transcription time, not recording time.**
+
+This means you can:
+- Start recording
+- Change your mind about the format preset (email → todo list)
+- Change the model (Gemini → GPT-4o)
+- Adjust formality level or verbosity
+- Modify prompt checkboxes
+
+When you click **Transcribe**, the app uses whatever settings are currently selected in the UI at that moment. This gives you flexibility to adjust parameters between recording and transcription.
+
+**UI parameters that are applied at transcription:**
+- Format preset (email, todo, meeting notes, etc.)
+- Model selection (provider and specific model)
+- Formality level (casual, neutral, professional)
+- Verbosity reduction slider
+- All prompt checkboxes (filler words, punctuation, etc.)
+- Custom user instructions (if any)
+
+**Settings applied at recording time:**
+- Audio device selection
+- VAD (Voice Activity Detection) enabled/disabled
+- AGC (Automatic Gain Control) enabled/disabled
+- Audio archival enabled/disabled
+
+### Can I change models between recording and transcribing?
+
+Yes! The model selection is applied when you click Transcribe, not when you start recording. You can record audio, then decide which model to use for transcription.
+
+### What happens if I change the format preset mid-recording?
+
+Nothing—the format preset is only applied when you click Transcribe. The recording itself is not affected by format selection.
+
+### How does append mode work?
+
+In append mode:
+1. Record a clip and click "Stop" (not "Transcribe")
+2. The audio is held in memory
+3. Record another clip and click "Stop" again
+4. Repeat as needed
+5. Click "Transcribe" to send all clips as a single combined recording
+
+All UI parameters (format, model, etc.) are applied to the final combined recording when you click Transcribe.
+
 ## Related Resources
 
 - `planning/idea-notes/` - Original concept recordings and transcripts

@@ -19,7 +19,7 @@ from PyQt6.QtWidgets import (
 from PyQt6.QtCore import Qt, QDate
 from PyQt6.QtGui import QFont
 
-from .database import get_db
+from .database_mongo import get_db
 from .config import load_config
 
 

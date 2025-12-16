@@ -85,6 +85,7 @@ class AudioFeedback:
         # Pre-generate beep sounds (volume ~0.12 for discreet office-friendly notifications)
         self._start_beep = generate_beep(frequency=880, duration_ms=100, volume=0.12)  # A5, short
         self._stop_beep = generate_double_beep(freq1=880, freq2=660, duration_ms=80, volume=0.12)  # A5 down to E5
+        self._clipboard_beep = self._generate_clipboard_beep()  # Quick triple beep for clipboard
 
     @property
     def enabled(self) -> bool:
@@ -93,6 +94,17 @@ class AudioFeedback:
     @enabled.setter
     def enabled(self, value: bool):
         self._enabled = value
+
+    def _generate_clipboard_beep(self) -> bytes:
+        """Generate a quick triple beep for clipboard (high pitch, very short).
+
+        Uses a higher frequency (1320Hz = E6) and very short duration to distinguish
+        from start/stop beeps. Triple beep pattern makes it unique.
+        """
+        sample_rate = 44100
+        beep = generate_beep(frequency=1320, duration_ms=50, volume=0.12, sample_rate=sample_rate)
+        gap = b'\x00\x00' * int(sample_rate * 30 / 1000)  # 30ms silence between beeps
+        return beep + gap + beep + gap + beep
 
     def play_start_beep(self):
         """Play the recording start beep."""
@@ -103,6 +115,11 @@ class AudioFeedback:
         """Play the recording stop beep."""
         if self._enabled:
             self._play_async(self._stop_beep)
+
+    def play_clipboard_beep(self):
+        """Play the clipboard copy beep."""
+        if self._enabled:
+            self._play_async(self._clipboard_beep)
 
     def _play_async(self, audio_data: bytes):
         """Play audio in a background thread to avoid blocking."""

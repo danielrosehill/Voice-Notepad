@@ -125,6 +125,7 @@ class Config:
 
     # Audio feedback
     beep_on_record: bool = True  # Play beep when recording starts/stops
+    beep_on_clipboard: bool = True  # Play beep when text copied to clipboard
 
     # Prompt customization options (checkboxes) - Layer 2 only
     # Foundation layer (fillers, punctuation, paragraph spacing) is always applied
@@ -132,6 +133,7 @@ class Config:
     prompt_add_subheadings: bool = False     # Add ## headings for lengthy content
     prompt_markdown_formatting: bool = False  # Use bold, lists, etc.
     prompt_remove_unintentional_dialogue: bool = False  # Remove accidental dialogue from others
+    prompt_enhancement_enabled: bool = False  # Enhance prompts for maximum AI effectiveness
 
     # Legacy field - kept for backwards compatibility but not used directly
     # The prompt is now built from the above boolean flags
@@ -234,6 +236,11 @@ OPTIONAL_PROMPT_COMPONENTS = [
         "prompt_remove_unintentional_dialogue",
         "If you detect dialogue that appears to be unintentional (e.g., someone else speaking to the user during the recording), only remove it if you can infer with high certainty that it was accidental. If uncertain, keep the dialogue in the transcription.",
         "Remove unintentional dialogue (if detectable)"
+    ),
+    (
+        "prompt_enhancement_enabled",
+        "If the output is a prompt for an AI assistant, optimize it for maximum effectiveness by: ensuring clarity and specificity, adding relevant context, structuring instructions logically, using imperative language, and following prompt engineering best practices. If the content is not a prompt, apply standard formatting only.",
+        "Enhance AI prompts for effectiveness (prompt formats only)"
     ),
 ]
 
@@ -345,6 +352,12 @@ FORMAT_TEMPLATES = {
         "category": "work",
         "description": "AI system prompt (third-person, defining behavior)",
     },
+    "image_generation_prompt": {
+        "instruction": "Format as a detailed image generation prompt suitable for AI image generators (Stable Diffusion, DALL-E, Midjourney, etc.). Include: subject description, style/aesthetic, composition, lighting, camera angle, colors/mood, quality markers, and negative prompt suggestions if applicable.",
+        "adherence": "Use descriptive, comma-separated keywords and phrases. Be specific about visual details. Include style modifiers (photorealistic, oil painting, anime, etc.). Specify technical aspects (4K, detailed, sharp focus). Structure as: main subject, setting, style, technical quality. Add [Negative prompt: ...] section for things to avoid if mentioned.",
+        "category": "work",
+        "description": "Image generation prompt for AI art tools",
+    },
     "api_doc": {
         "instruction": "Format as API documentation with endpoint details, parameters, request/response examples, and usage notes.",
         "adherence": "Use consistent structure for each endpoint. Include HTTP methods, URL patterns, parameter tables, example requests/responses in code blocks. Note authentication requirements.",
@@ -416,6 +429,7 @@ FORMAT_DISPLAY_NAMES = {
     "ai_prompt": "AI Prompt",
     "dev_prompt": "Development Prompt",
     "system_prompt": "System Prompt",
+    "image_generation_prompt": "Image Generation Prompt",
     "todo": "To-Do List",
     "grocery": "Grocery List",
     "meeting_notes": "Meeting Notes",
