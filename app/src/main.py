@@ -70,16 +70,14 @@ from .hotkeys import (
 )
 from .cost_tracker import get_tracker
 from .history_widget import HistoryWidget
-from .cost_widget import CostWidget
-from .analysis_widget import AnalysisWidget
-from .models_widget import ModelsWidget
-from .formats_widget import FormatsWidget
+from .analytics_widget import AnalyticsWidget
+from .settings_widget import SettingsWidget
 from .about_widget import AboutWidget
-from .mic_test_widget import MicTestWidget
 from .audio_feedback import get_feedback
-from .prompt_stack_widget import PromptStackWidget
 from .file_transcription_widget import FileTranscriptionWidget
 from .mic_naming_ai import MicrophoneNamingAI
+from .prompt_options_dialog import PromptOptionsDialog
+from .prompt_stack_widget import PromptStackWidget
 
 
 class HotkeyEdit(QLineEdit):
@@ -191,726 +189,6 @@ class TranscriptionWorker(QThread):
         except Exception as e:
             self.error.emit(str(e))
 
-
-class SettingsDialog(QDialog):
-    """Settings dialog for API keys and preferences."""
-
-    def __init__(self, config: Config, recorder, parent=None):
-        super().__init__(parent)
-        self.config = config
-        self.recorder = recorder
-        self.setWindowTitle("Settings")
-        self.setMinimumWidth(650)
-        self.setup_ui()
-
-    def setup_ui(self):
-        layout = QVBoxLayout(self)
-
-        tabs = QTabWidget()
-
-        # API Keys tab
-        api_tab = QWidget()
-        api_layout = QFormLayout(api_tab)
-
-        self.gemini_key = QLineEdit(self.config.gemini_api_key)
-        self.gemini_key.setEchoMode(QLineEdit.EchoMode.Password)
-        api_layout.addRow("Gemini API Key:", self.gemini_key)
-
-        self.openai_key = QLineEdit(self.config.openai_api_key)
-        self.openai_key.setEchoMode(QLineEdit.EchoMode.Password)
-        api_layout.addRow("OpenAI API Key:", self.openai_key)
-
-        self.mistral_key = QLineEdit(self.config.mistral_api_key)
-        self.mistral_key.setEchoMode(QLineEdit.EchoMode.Password)
-        api_layout.addRow("Mistral API Key:", self.mistral_key)
-
-        self.openrouter_key = QLineEdit(self.config.openrouter_api_key)
-        self.openrouter_key.setEchoMode(QLineEdit.EchoMode.Password)
-        api_layout.addRow("OpenRouter API Key:", self.openrouter_key)
-
-        tabs.addTab(api_tab, "API Keys")
-
-        # Audio tab (microphone selection)
-        audio_tab = QWidget()
-        audio_layout = QVBoxLayout(audio_tab)
-
-        # Preferred Microphone section
-        preferred_group = QGroupBox("Preferred Microphone")
-        preferred_layout = QFormLayout(preferred_group)
-        self.preferred_mic_combo = QComboBox()
-
-        # Nickname with preset suggestions
-        nickname_container = QWidget()
-        nickname_layout = QVBoxLayout(nickname_container)
-        nickname_layout.setContentsMargins(0, 0, 0, 0)
-        nickname_layout.setSpacing(4)
-
-        self.preferred_mic_nickname = QLineEdit(self.config.preferred_mic_nickname)
-        self.preferred_mic_nickname.setPlaceholderText("e.g., Q2U, Studio Mic, Podcast Mic")
-        self.preferred_mic_nickname.setMaxLength(20)
-        nickname_layout.addWidget(self.preferred_mic_nickname)
-
-        # Preset nickname buttons
-        preset_layout = QHBoxLayout()
-        preset_label = QLabel("Quick presets:")
-        preset_label.setStyleSheet("font-size: 10px; color: #888;")
-        preset_layout.addWidget(preset_label)
-
-        preset_names = ["Gooseneck", "Lavalier", "Desktop", "Boundary", "Headset", "Shotgun"]
-        for name in preset_names:
-            btn = QPushButton(name)
-            btn.setMaximumWidth(80)
-            btn.setStyleSheet("font-size: 10px; padding: 2px 6px;")
-            btn.clicked.connect(lambda checked, n=name: self.preferred_mic_nickname.setText(n))
-            preset_layout.addWidget(btn)
-        preset_layout.addStretch()
-        nickname_layout.addLayout(preset_layout)
-
-        preferred_layout.addRow("Device:", self.preferred_mic_combo)
-        preferred_layout.addRow("Nickname:", nickname_container)
-        audio_layout.addWidget(preferred_group)
-
-        # Fallback Microphone section
-        fallback_group = QGroupBox("Fallback Microphone")
-        fallback_layout = QFormLayout(fallback_group)
-        self.fallback_mic_combo = QComboBox()
-
-        # Nickname with preset suggestions
-        fallback_nickname_container = QWidget()
-        fallback_nickname_layout = QVBoxLayout(fallback_nickname_container)
-        fallback_nickname_layout.setContentsMargins(0, 0, 0, 0)
-        fallback_nickname_layout.setSpacing(4)
-
-        self.fallback_mic_nickname = QLineEdit(self.config.fallback_mic_nickname)
-        self.fallback_mic_nickname.setPlaceholderText("e.g., H390, Backup Mic")
-        self.fallback_mic_nickname.setMaxLength(20)
-        fallback_nickname_layout.addWidget(self.fallback_mic_nickname)
-
-        # Preset nickname buttons
-        fallback_preset_layout = QHBoxLayout()
-        fallback_preset_label = QLabel("Quick presets:")
-        fallback_preset_label.setStyleSheet("font-size: 10px; color: #888;")
-        fallback_preset_layout.addWidget(fallback_preset_label)
-
-        for name in preset_names:
-            btn = QPushButton(name)
-            btn.setMaximumWidth(80)
-            btn.setStyleSheet("font-size: 10px; padding: 2px 6px;")
-            btn.clicked.connect(lambda checked, n=name: self.fallback_mic_nickname.setText(n))
-            fallback_preset_layout.addWidget(btn)
-        fallback_preset_layout.addStretch()
-        fallback_nickname_layout.addLayout(fallback_preset_layout)
-
-        fallback_layout.addRow("Device:", self.fallback_mic_combo)
-        fallback_layout.addRow("Nickname:", fallback_nickname_container)
-        audio_layout.addWidget(fallback_group)
-
-        # Populate mic combos
-        self._refresh_microphones()
-
-        # AI Microphone Naming
-        ai_naming_container = QWidget()
-        ai_naming_layout = QHBoxLayout(ai_naming_container)
-        ai_naming_layout.setContentsMargins(0, 10, 0, 10)
-
-        ai_name_btn = QPushButton("🤖 AI Name Microphones")
-        ai_name_btn.setToolTip(
-            "Use AI to generate friendly nicknames for all detected microphones.\n"
-            "Requires OpenRouter API key."
-        )
-        ai_name_btn.clicked.connect(self._ai_name_microphones)
-        ai_naming_layout.addWidget(ai_name_btn)
-        ai_naming_layout.addStretch()
-
-        audio_layout.addWidget(ai_naming_container)
-
-        # Sample rate
-        sample_layout = QFormLayout()
-        self.sample_rate = QComboBox()
-        self.sample_rate.addItems(["16000", "22050", "44100", "48000"])
-        self.sample_rate.setCurrentText(str(self.config.sample_rate))
-        sample_layout.addRow("Sample Rate:", self.sample_rate)
-        audio_layout.addLayout(sample_layout)
-
-        audio_layout.addStretch()
-        tabs.addTab(audio_tab, "Audio")
-
-        # Behavior tab
-        behavior_tab = QWidget()
-        behavior_layout = QFormLayout(behavior_tab)
-
-        self.start_minimized = QCheckBox()
-        self.start_minimized.setChecked(self.config.start_minimized)
-        behavior_layout.addRow("Start minimized to tray:", self.start_minimized)
-
-        # Storage settings section
-        behavior_layout.addRow(QLabel(""))  # Spacer
-        storage_label = QLabel("Storage Settings")
-        storage_label.setStyleSheet("font-weight: bold; margin-top: 10px;")
-        behavior_layout.addRow(storage_label)
-
-        self.vad_enabled = QCheckBox()
-        self.vad_enabled.setChecked(self.config.vad_enabled)
-        self.vad_enabled.setToolTip(
-            "Remove silence from recordings before sending to API.\n"
-            "Reduces file size and API costs."
-        )
-        behavior_layout.addRow("Enable VAD (silence removal):", self.vad_enabled)
-
-        self.store_audio = QCheckBox()
-        self.store_audio.setChecked(self.config.store_audio)
-        self.store_audio.setToolTip(
-            "Archive audio recordings in Opus format (~24kbps).\n"
-            "Audio files are stored in ~/.config/voice-notepad-v3/audio-archive/"
-        )
-        behavior_layout.addRow("Archive audio recordings:", self.store_audio)
-
-        # Audio feedback section
-        behavior_layout.addRow(QLabel(""))  # Spacer
-        feedback_label = QLabel("Audio Feedback")
-        feedback_label.setStyleSheet("font-weight: bold; margin-top: 10px;")
-        behavior_layout.addRow(feedback_label)
-
-        self.beep_on_record = QCheckBox()
-        self.beep_on_record.setChecked(self.config.beep_on_record)
-        self.beep_on_record.setToolTip(
-            "Play a short beep when recording starts and stops.\n"
-            "Useful for confirming hotkey actions."
-        )
-        behavior_layout.addRow("Beep on record start/stop:", self.beep_on_record)
-
-        self.beep_on_clipboard = QCheckBox()
-        self.beep_on_clipboard.setChecked(self.config.beep_on_clipboard)
-        self.beep_on_clipboard.setToolTip(
-            "Play a quick triple beep when text is copied to clipboard.\n"
-            "Lets you know the text is ready to paste."
-        )
-        behavior_layout.addRow("Beep on clipboard copy:", self.beep_on_clipboard)
-
-        tabs.addTab(behavior_tab, "Behavior")
-
-        # Personalization tab
-        personalization_tab = QWidget()
-        personalization_layout = QFormLayout(personalization_tab)
-
-        # Info label
-        personalization_info = QLabel(
-            "Configure your personal information to automatically include in emails and letters.\n"
-            "These fields are only used when the 'Email' or 'Letter' format preset is selected."
-        )
-        personalization_info.setWordWrap(True)
-        personalization_info.setStyleSheet("color: #666; margin-bottom: 15px;")
-        personalization_layout.addRow(personalization_info)
-
-        # User name
-        self.user_name = QLineEdit(self.config.user_name)
-        self.user_name.setPlaceholderText("e.g., Daniel Rosehill")
-        personalization_layout.addRow("Name:", self.user_name)
-
-        # User email
-        self.user_email = QLineEdit(self.config.user_email)
-        self.user_email.setPlaceholderText("e.g., daniel@example.com")
-        personalization_layout.addRow("Email:", self.user_email)
-
-        # User phone
-        self.user_phone = QLineEdit(self.config.user_phone)
-        self.user_phone.setPlaceholderText("e.g., +1-555-0100")
-        personalization_layout.addRow("Phone:", self.user_phone)
-
-        # Email signature section
-        personalization_layout.addRow(QLabel(""))  # Spacer
-        signature_label = QLabel("Email Signature")
-        signature_label.setStyleSheet("font-weight: bold; margin-top: 10px;")
-        personalization_layout.addRow(signature_label)
-
-        # Email signature with dropdown presets
-        signature_container = QWidget()
-        signature_layout = QVBoxLayout(signature_container)
-        signature_layout.setContentsMargins(0, 0, 0, 0)
-        signature_layout.setSpacing(4)
-
-        # Dropdown for common sign-offs
-        self.email_signature_combo = QComboBox()
-        self.email_signature_combo.setEditable(True)
-        for signoff in EMAIL_SIGNOFFS:
-            self.email_signature_combo.addItem(signoff)
-        # Set current value
-        current_sig = self.config.email_signature or "Best regards"
-        idx = self.email_signature_combo.findText(current_sig)
-        if idx >= 0:
-            self.email_signature_combo.setCurrentIndex(idx)
-        else:
-            self.email_signature_combo.setEditText(current_sig)
-
-        signature_layout.addWidget(self.email_signature_combo)
-
-        # Help text
-        sig_help = QLabel("Sign-off phrase (e.g., 'Best regards', 'Sincerely')")
-        sig_help.setStyleSheet("font-size: 10px; color: #888;")
-        signature_layout.addWidget(sig_help)
-
-        personalization_layout.addRow("Sign-off:", signature_container)
-
-        tabs.addTab(personalization_tab, "Personalization")
-
-        # Hotkeys tab
-        hotkeys_tab = QWidget()
-        hotkeys_layout = QVBoxLayout(hotkeys_tab)
-
-        # Info label
-        info_label = QLabel(
-            "Configure global hotkeys that work even when the app is minimized.\n"
-            "F14-F20 (macro keys) are recommended to avoid conflicts with other apps.\n"
-            "Click a field and press a key to set. Press Delete/Backspace to clear."
-        )
-        info_label.setWordWrap(True)
-        info_label.setStyleSheet("color: #666; margin-bottom: 10px;")
-        hotkeys_layout.addWidget(info_label)
-
-        # Hotkey mode selector
-        mode_layout = QFormLayout()
-        self.hotkey_mode_combo = QComboBox()
-        for mode_key, mode_name in HOTKEY_MODE_NAMES.items():
-            self.hotkey_mode_combo.addItem(mode_name, mode_key)
-        # Set current mode
-        current_mode = self.config.hotkey_mode
-        idx = self.hotkey_mode_combo.findData(current_mode)
-        if idx >= 0:
-            self.hotkey_mode_combo.setCurrentIndex(idx)
-        self.hotkey_mode_combo.currentIndexChanged.connect(self._update_hotkey_fields_visibility)
-        mode_layout.addRow("Shortcut Mode:", self.hotkey_mode_combo)
-
-        # Mode description label
-        self.mode_description = QLabel(HOTKEY_MODE_DESCRIPTIONS.get(current_mode, ""))
-        self.mode_description.setWordWrap(True)
-        self.mode_description.setStyleSheet("color: #888; font-style: italic; margin-bottom: 10px;")
-        mode_layout.addRow("", self.mode_description)
-
-        hotkeys_layout.addLayout(mode_layout)
-
-        # Container for mode-specific fields
-        self.hotkey_fields_container = QWidget()
-        self.hotkey_fields_layout = QFormLayout(self.hotkey_fields_container)
-        self.hotkey_fields_layout.setContentsMargins(0, 0, 0, 0)
-
-        # Single Key mode fields
-        self.single_key_widgets = []
-        self.hotkey_single = HotkeyEdit()
-        self.hotkey_single.setText(self.config.hotkey_single_key.upper())
-        self.single_key_widgets.append(("Single Key:", self.hotkey_single))
-
-        # Tap-to-Toggle mode fields
-        self.tap_toggle_widgets = []
-        self.hotkey_toggle = HotkeyEdit()
-        self.hotkey_toggle.setText(self.config.hotkey_record_toggle.upper())
-        self.tap_toggle_widgets.append(("Toggle Recording:", self.hotkey_toggle))
-
-        # Separate mode fields
-        self.separate_widgets = []
-        self.hotkey_start = HotkeyEdit()
-        self.hotkey_start.setText(self.config.hotkey_start.upper() if self.config.hotkey_start else "")
-        self.separate_widgets.append(("Start Recording:", self.hotkey_start))
-
-        self.hotkey_stop_discard = HotkeyEdit()
-        self.hotkey_stop_discard.setText(self.config.hotkey_stop_discard.upper() if self.config.hotkey_stop_discard else "")
-        self.separate_widgets.append(("Stop && Discard:", self.hotkey_stop_discard))
-
-        # PTT mode fields
-        self.ptt_widgets = []
-        self.hotkey_ptt = HotkeyEdit()
-        self.hotkey_ptt.setText(self.config.hotkey_ptt.upper() if self.config.hotkey_ptt else "")
-        self.ptt_widgets.append(("Push-to-Talk Key:", self.hotkey_ptt))
-
-        self.ptt_release_action = QComboBox()
-        self.ptt_release_action.addItem("Transcribe", "transcribe")
-        self.ptt_release_action.addItem("Discard", "discard")
-        release_idx = self.ptt_release_action.findData(self.config.ptt_release_action)
-        if release_idx >= 0:
-            self.ptt_release_action.setCurrentIndex(release_idx)
-        self.ptt_widgets.append(("On Key Release:", self.ptt_release_action))
-
-        # Stop & Transcribe - shared across modes (except PTT when set to transcribe on release)
-        self.hotkey_stop_transcribe = HotkeyEdit()
-        self.hotkey_stop_transcribe.setText(self.config.hotkey_stop_and_transcribe.upper())
-
-        hotkeys_layout.addWidget(self.hotkey_fields_container)
-
-        # Suggested hotkeys button
-        suggest_btn = QPushButton("Use Suggested Hotkeys")
-        suggest_btn.clicked.connect(self._use_suggested_hotkeys)
-        hotkeys_layout.addWidget(suggest_btn)
-
-        hotkeys_layout.addStretch()
-        tabs.addTab(hotkeys_tab, "Hotkeys")
-
-        # Database tab
-        database_tab = QWidget()
-        database_layout = QVBoxLayout(database_tab)
-
-        # Database info section
-        info_group = QGroupBox("Database Information")
-        info_layout = QFormLayout(info_group)
-
-        db = get_db()
-        stats = db.get_storage_stats()
-
-        self.db_records_label = QLabel(f"{stats['total_records']:,}")
-        info_layout.addRow("Total Transcriptions:", self.db_records_label)
-
-        db_size_mb = stats['db_size_bytes'] / (1024 * 1024)
-        self.db_size_label = QLabel(f"{db_size_mb:.2f} MB")
-        info_layout.addRow("Database Size:", self.db_size_label)
-
-        audio_size_mb = stats['audio_size_bytes'] / (1024 * 1024)
-        self.db_audio_label = QLabel(f"{audio_size_mb:.2f} MB ({stats['records_with_audio']} files)")
-        info_layout.addRow("Archived Audio:", self.db_audio_label)
-
-        total_size_mb = stats['total_size_bytes'] / (1024 * 1024)
-        self.db_total_label = QLabel(f"{total_size_mb:.2f} MB")
-        info_layout.addRow("Total Storage:", self.db_total_label)
-
-        fts_status = "Enabled ✓" if db.is_fts_enabled() else "Disabled"
-        self.db_fts_label = QLabel(fts_status)
-        info_layout.addRow("Full-Text Search:", self.db_fts_label)
-
-        database_layout.addWidget(info_group)
-
-        # Maintenance section
-        maintenance_group = QGroupBox("Database Maintenance")
-        maintenance_layout = QVBoxLayout(maintenance_group)
-
-        # VACUUM button
-        vacuum_container = QWidget()
-        vacuum_layout = QHBoxLayout(vacuum_container)
-        vacuum_layout.setContentsMargins(0, 0, 0, 0)
-
-        vacuum_btn = QPushButton("Optimize Database")
-        vacuum_btn.setStyleSheet("""
-            QPushButton {
-                background-color: #007bff;
-                color: white;
-                border: none;
-                border-radius: 4px;
-                padding: 8px 16px;
-                font-weight: bold;
-            }
-            QPushButton:hover {
-                background-color: #0056b3;
-            }
-        """)
-        vacuum_btn.clicked.connect(self._on_vacuum_database)
-        vacuum_layout.addWidget(vacuum_btn)
-
-        vacuum_info = QLabel("Rebuild indexes and clean up orphaned files")
-        vacuum_info.setStyleSheet("color: #666; font-size: 11px;")
-        vacuum_layout.addWidget(vacuum_info)
-        vacuum_layout.addStretch()
-
-        maintenance_layout.addWidget(vacuum_container)
-
-        # Refresh stats button
-        refresh_btn = QPushButton("Refresh Statistics")
-        refresh_btn.clicked.connect(self._refresh_db_stats)
-        maintenance_layout.addWidget(refresh_btn)
-
-        database_layout.addWidget(maintenance_group)
-
-        database_layout.addStretch()
-        tabs.addTab(database_tab, "Database")
-
-        # Initial visibility update
-        self._update_hotkey_fields_visibility()
-
-        # Note: Prompt options are now in the main Record tab for easier access
-
-        layout.addWidget(tabs)
-
-        # Buttons
-        btn_layout = QHBoxLayout()
-        save_btn = QPushButton("Save")
-        save_btn.clicked.connect(self.save_settings)
-        cancel_btn = QPushButton("Cancel")
-        cancel_btn.clicked.connect(self.reject)
-        btn_layout.addStretch()
-        btn_layout.addWidget(cancel_btn)
-        btn_layout.addWidget(save_btn)
-        layout.addLayout(btn_layout)
-
-    def _refresh_microphones(self):
-        """Refresh the list of available microphones."""
-        devices = self.recorder.get_input_devices()
-
-        # Populate preferred mic combo
-        self.preferred_mic_combo.clear()
-        self.preferred_mic_combo.addItem("(None - use fallback/default)", "")
-        for idx, name in devices:
-            self.preferred_mic_combo.addItem(name, name)  # Store name as data
-
-        # Select previously configured preferred mic
-        if self.config.preferred_mic_name:
-            idx = self.preferred_mic_combo.findData(self.config.preferred_mic_name)
-            if idx >= 0:
-                self.preferred_mic_combo.setCurrentIndex(idx)
-
-        # Populate fallback mic combo
-        self.fallback_mic_combo.clear()
-        self.fallback_mic_combo.addItem("(None - use system default)", "")
-        for idx, name in devices:
-            self.fallback_mic_combo.addItem(name, name)  # Store name as data
-
-        # Select previously configured fallback mic
-        if self.config.fallback_mic_name:
-            idx = self.fallback_mic_combo.findData(self.config.fallback_mic_name)
-            if idx >= 0:
-                self.fallback_mic_combo.setCurrentIndex(idx)
-
-    def _ai_name_microphones(self):
-        """Use AI to generate friendly nicknames for all detected microphones."""
-        # Check for OpenRouter API key
-        api_key = self.config.openrouter_api_key or os.environ.get("OPENROUTER_API_KEY", "")
-        if not api_key:
-            QMessageBox.warning(
-                self,
-                "API Key Required",
-                "OpenRouter API key is required for AI microphone naming.\n\n"
-                "Please add your OpenRouter API key in the API Keys tab.",
-            )
-            return
-
-        # Get all detected microphones
-        devices = self.recorder.get_input_devices()
-        if not devices:
-            QMessageBox.information(
-                self,
-                "No Microphones",
-                "No microphones detected.",
-            )
-            return
-
-        # Show progress message
-        progress_msg = QMessageBox(self)
-        progress_msg.setWindowTitle("Naming Microphones")
-        progress_msg.setText("AI is generating friendly names for your microphones...")
-        progress_msg.setStandardButtons(QMessageBox.StandardButton.NoButton)
-        progress_msg.show()
-        QApplication.processEvents()
-
-        try:
-            # Extract device names only
-            device_names = [name for _, name in devices]
-
-            # Use AI to generate nicknames
-            ai = MicrophoneNamingAI(api_key)
-            nicknames = ai.generate_nicknames_batch(device_names)
-
-            progress_msg.close()
-
-            if not nicknames:
-                QMessageBox.warning(
-                    self,
-                    "Naming Failed",
-                    "Failed to generate microphone nicknames. Please try again.",
-                )
-                return
-
-            # Build result message
-            result_lines = ["AI has suggested the following names:\n"]
-            for device_name, nickname in nicknames.items():
-                result_lines.append(f"• {device_name}")
-                result_lines.append(f"  → {nickname}\n")
-
-            result_lines.append("\nWould you like to apply these nicknames?")
-            result_text = "\n".join(result_lines)
-
-            # Ask for confirmation
-            reply = QMessageBox.question(
-                self,
-                "Apply AI Names?",
-                result_text,
-                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
-                QMessageBox.StandardButton.Yes,
-            )
-
-            if reply == QMessageBox.StandardButton.Yes:
-                # Apply nicknames to config
-                # Set preferred mic nickname if it's in the results
-                if self.config.preferred_mic_name in nicknames:
-                    self.preferred_mic_nickname.setText(nicknames[self.config.preferred_mic_name])
-
-                # Set fallback mic nickname if it's in the results
-                if self.config.fallback_mic_name in nicknames:
-                    self.fallback_mic_nickname.setText(nicknames[self.config.fallback_mic_name])
-
-                QMessageBox.information(
-                    self,
-                    "Names Applied",
-                    "AI-generated nicknames have been applied to your configured microphones.\n\n"
-                    "Click 'Save' to save the changes.",
-                )
-
-        except Exception as e:
-            progress_msg.close()
-            QMessageBox.critical(
-                self,
-                "Error",
-                f"Error generating microphone names: {e}",
-            )
-
-    def _update_hotkey_fields_visibility(self):
-        """Update which hotkey fields are visible based on selected mode."""
-        mode = self.hotkey_mode_combo.currentData()
-
-        # Update description
-        self.mode_description.setText(HOTKEY_MODE_DESCRIPTIONS.get(mode, ""))
-
-        # Clear existing widgets from layout
-        while self.hotkey_fields_layout.count():
-            item = self.hotkey_fields_layout.takeAt(0)
-            if item.widget():
-                item.widget().setParent(None)
-
-        # Add appropriate widgets based on mode
-        if mode == "single_key":
-            for label, widget in self.single_key_widgets:
-                self.hotkey_fields_layout.addRow(label, widget)
-
-        elif mode == "tap_toggle":
-            for label, widget in self.tap_toggle_widgets:
-                self.hotkey_fields_layout.addRow(label, widget)
-            self.hotkey_fields_layout.addRow("Stop && Transcribe:", self.hotkey_stop_transcribe)
-
-        elif mode == "separate":
-            for label, widget in self.separate_widgets:
-                self.hotkey_fields_layout.addRow(label, widget)
-            self.hotkey_fields_layout.addRow("Stop && Transcribe:", self.hotkey_stop_transcribe)
-
-        elif mode == "ptt":
-            for label, widget in self.ptt_widgets:
-                self.hotkey_fields_layout.addRow(label, widget)
-            # Only show stop & transcribe if PTT release action is discard
-            # (otherwise transcribe happens automatically on release)
-            if self.ptt_release_action.currentData() == "discard":
-                self.hotkey_fields_layout.addRow("Stop && Transcribe:", self.hotkey_stop_transcribe)
-
-        # Connect PTT release action change to update visibility
-        try:
-            self.ptt_release_action.currentIndexChanged.disconnect(self._update_hotkey_fields_visibility)
-        except TypeError:
-            pass
-        self.ptt_release_action.currentIndexChanged.connect(self._update_hotkey_fields_visibility)
-
-    def _use_suggested_hotkeys(self):
-        """Fill in the suggested hotkeys based on current mode."""
-        mode = self.hotkey_mode_combo.currentData()
-
-        if mode == "single_key":
-            self.hotkey_single.setText(SUGGESTED_HOTKEYS["single_key"])
-        elif mode == "tap_toggle":
-            self.hotkey_toggle.setText(SUGGESTED_HOTKEYS["record_toggle"])
-            self.hotkey_stop_transcribe.setText(SUGGESTED_HOTKEYS["stop_and_transcribe"])
-        elif mode == "separate":
-            self.hotkey_start.setText(SUGGESTED_HOTKEYS["start"])
-            self.hotkey_stop_discard.setText(SUGGESTED_HOTKEYS["stop_discard"])
-            self.hotkey_stop_transcribe.setText(SUGGESTED_HOTKEYS["stop_and_transcribe"])
-        elif mode == "ptt":
-            self.hotkey_ptt.setText(SUGGESTED_HOTKEYS["ptt"])
-
-    def _refresh_db_stats(self):
-        """Refresh database statistics display."""
-        db = get_db()
-        stats = db.get_storage_stats()
-
-        self.db_records_label.setText(f"{stats['total_records']:,}")
-
-        db_size_mb = stats['db_size_bytes'] / (1024 * 1024)
-        self.db_size_label.setText(f"{db_size_mb:.2f} MB")
-
-        audio_size_mb = stats['audio_size_bytes'] / (1024 * 1024)
-        self.db_audio_label.setText(f"{audio_size_mb:.2f} MB ({stats['records_with_audio']} files)")
-
-        total_size_mb = stats['total_size_bytes'] / (1024 * 1024)
-        self.db_total_label.setText(f"{total_size_mb:.2f} MB")
-
-        fts_status = "Enabled ✓" if db.is_fts_enabled() else "Disabled"
-        self.db_fts_label.setText(fts_status)
-
-    def _on_vacuum_database(self):
-        """Run VACUUM to optimize database."""
-        reply = QMessageBox.question(
-            self,
-            "Optimize Database",
-            "This will optimize the database and reclaim unused disk space.\n\n"
-            "The database will be locked during this operation, which may take a few seconds.\n\n"
-            "Continue?",
-            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
-            QMessageBox.StandardButton.Yes,
-        )
-
-        if reply == QMessageBox.StandardButton.Yes:
-            db = get_db()
-            if db.vacuum():
-                QMessageBox.information(
-                    self,
-                    "Optimization Complete",
-                    "Database has been optimized successfully.\n\n"
-                    "Disk space has been reclaimed.",
-                )
-                self._refresh_db_stats()
-            else:
-                QMessageBox.warning(
-                    self,
-                    "Optimization Failed",
-                    "Failed to optimize database.\n\n"
-                    "Please check the console for error details.",
-                )
-
-    def save_settings(self):
-        self.config.gemini_api_key = self.gemini_key.text()
-        self.config.openai_api_key = self.openai_key.text()
-        self.config.mistral_api_key = self.mistral_key.text()
-        self.config.openrouter_api_key = self.openrouter_key.text()
-
-        # Microphone preferences with nicknames
-        self.config.preferred_mic_name = self.preferred_mic_combo.currentData() or ""
-        self.config.preferred_mic_nickname = self.preferred_mic_nickname.text().strip()
-        self.config.fallback_mic_name = self.fallback_mic_combo.currentData() or ""
-        self.config.fallback_mic_nickname = self.fallback_mic_nickname.text().strip()
-
-        self.config.start_minimized = self.start_minimized.isChecked()
-        self.config.sample_rate = int(self.sample_rate.currentText())
-
-        # Hotkey mode and settings (store lowercase for consistency)
-        self.config.hotkey_mode = self.hotkey_mode_combo.currentData()
-
-        # Tap-to-Toggle mode hotkeys
-        self.config.hotkey_record_toggle = self.hotkey_toggle.text().lower()
-
-        # Separate mode hotkeys
-        self.config.hotkey_start = self.hotkey_start.text().lower()
-        self.config.hotkey_stop_discard = self.hotkey_stop_discard.text().lower()
-
-        # PTT mode settings
-        self.config.hotkey_ptt = self.hotkey_ptt.text().lower()
-        self.config.ptt_release_action = self.ptt_release_action.currentData()
-
-        # Shared hotkey
-        self.config.hotkey_stop_and_transcribe = self.hotkey_stop_transcribe.text().lower()
-
-        # Storage settings
-        self.config.vad_enabled = self.vad_enabled.isChecked()
-        self.config.store_audio = self.store_audio.isChecked()
-        # Audio feedback
-        self.config.beep_on_record = self.beep_on_record.isChecked()
-        self.config.beep_on_clipboard = self.beep_on_clipboard.isChecked()
-
-        # Personalization settings
-        self.config.user_name = self.user_name.text().strip()
-        self.config.user_email = self.user_email.text().strip()
-        self.config.user_phone = self.user_phone.text().strip()
-        self.config.email_signature = self.email_signature_combo.currentText().strip()
-
-        save_config(self.config)
-        self.accept()
 
 
 class MainWindow(QMainWindow):
@@ -1155,201 +433,43 @@ class MainWindow(QMainWindow):
         # Update tier button states based on current model
         self._update_tier_buttons()
 
-        # Formatting Prompt (collapsible) - combines cleanup options and format settings
-        prompt_header = QHBoxLayout()
-        self.prompt_toggle_btn = QPushButton("▶ Formatting Prompt")
-        self.prompt_toggle_btn.setStyleSheet("""
-            QPushButton {
-                border: none;
-                text-align: left;
-                padding: 4px 8px;
-                color: #555;
-                font-size: 12px;
-            }
-            QPushButton:hover {
-                color: #007bff;
-            }
-        """)
-        self.prompt_toggle_btn.clicked.connect(self._toggle_prompt_options)
-        prompt_header.addWidget(self.prompt_toggle_btn)
+        # Prompt Configuration Button (opens modal dialog)
+        prompt_config_layout = QHBoxLayout()
 
-        # Help icon with tooltip
-        help_icon = QLabel("?")
-        help_icon.setStyleSheet("""
-            QLabel {
-                color: #6c757d;
-                font-size: 11px;
-                font-weight: bold;
-                border: 1px solid #6c757d;
-                border-radius: 8px;
-                padding: 0px 4px;
-                margin-left: 4px;
-            }
-        """)
-        help_icon.setToolTip(
-            "These parameters control the system/formatting prompt that gets applied "
-            "in conjunction with the audio file to generate a formatted transcription."
+        configure_prompt_btn = QPushButton("⚙ Configure Prompt...")
+        configure_prompt_btn.setMinimumHeight(34)
+        configure_prompt_btn.setToolTip(
+            "Configure detailed prompt options:\n"
+            "• Optional enhancements (filler words, punctuation, etc.)\n"
+            "• Format settings and tone\n"
+            "• Verbosity reduction\n"
+            "• Email signature settings"
         )
-        help_icon.setFixedSize(16, 16)
-        prompt_header.addWidget(help_icon)
-
-        prompt_header.addStretch()
-        layout.addLayout(prompt_header)
-
-        # Collapsible prompt controls container
-        self.prompt_options_frame = QFrame()
-        self.prompt_options_frame.setStyleSheet("""
-            QFrame {
+        configure_prompt_btn.setStyleSheet("""
+            QPushButton {
                 background-color: #f8f9fa;
-                border: 1px solid #dee2e6;
-                border-radius: 4px;
-                padding: 8px;
-            }
-        """)
-        self.prompt_options_frame.setVisible(False)  # Start collapsed
-
-        prompt_options_layout = QVBoxLayout(self.prompt_options_frame)
-        prompt_options_layout.setSpacing(8)
-        prompt_options_layout.setContentsMargins(8, 8, 8, 8)
-
-        # Optional enhancements checkboxes (Layer 2)
-        optional_label = QLabel("<b>Optional Enhancements:</b>")
-        optional_label.setStyleSheet("font-size: 11px; color: #495057; margin-top: 4px; margin-bottom: 4px;")
-        prompt_options_layout.addWidget(optional_label)
-
-        checkbox_grid = QGridLayout()
-        checkbox_grid.setSpacing(4)
-        self.prompt_checkboxes = {}
-        for i, (field_name, _, ui_description) in enumerate(OPTIONAL_PROMPT_COMPONENTS):
-            checkbox = QCheckBox(ui_description)
-            checkbox.setStyleSheet("font-size: 11px;")
-            checkbox.setChecked(getattr(self.config, field_name, False))
-            checkbox.stateChanged.connect(self._on_prompt_option_changed)
-            self.prompt_checkboxes[field_name] = checkbox
-            row = i // 2
-            col = i % 2
-            checkbox_grid.addWidget(checkbox, row, col)
-        prompt_options_layout.addLayout(checkbox_grid)
-
-        # Separator line
-        separator = QFrame()
-        separator.setFrameShape(QFrame.Shape.HLine)
-        separator.setStyleSheet("background-color: #dee2e6;")
-        separator.setFixedHeight(1)
-        prompt_options_layout.addWidget(separator)
-
-        # Format and Tone row
-        format_tone_row = QHBoxLayout()
-
-        # Format search field with completer
-        format_tone_row.addWidget(QLabel("Format:"))
-        self.format_search = QLineEdit()
-        self.format_search.setPlaceholderText("Search formats...")
-        self.format_search.setMinimumWidth(180)
-
-        # Create completer with all format names
-        format_names = [FORMAT_DISPLAY_NAMES[key] for key in FORMAT_TEMPLATES.keys()]
-        self.format_completer = QCompleter(format_names)
-        self.format_completer.setCaseSensitivity(Qt.CaseSensitivity.CaseInsensitive)
-        self.format_completer.setFilterMode(Qt.MatchFlag.MatchContains)
-        self.format_search.setCompleter(self.format_completer)
-
-        # Set initial text from config
-        current_format_name = FORMAT_DISPLAY_NAMES[self.config.format_preset]
-        self.format_search.setText(current_format_name)
-
-        # Connect signals
-        self.format_search.textChanged.connect(self._on_format_search_changed)
-        self.format_completer.activated.connect(self._on_format_selected)
-
-        format_tone_row.addWidget(self.format_search)
-
-        format_tone_row.addSpacing(20)
-
-        # Formality radio buttons
-        format_tone_row.addWidget(QLabel("Tone:"))
-        self.formality_group = QButtonGroup(self)
-        for formality_key, display_name in FORMALITY_DISPLAY_NAMES.items():
-            radio = QRadioButton(display_name)
-            radio.setStyleSheet("font-size: 11px;")
-            radio.setProperty("formality_key", formality_key)
-            if formality_key == self.config.formality_level:
-                radio.setChecked(True)
-            self.formality_group.addButton(radio)
-            format_tone_row.addWidget(radio)
-        self.formality_group.buttonClicked.connect(self._on_formality_changed)
-
-        format_tone_row.addSpacing(20)
-
-        # Verbosity dropdown
-        format_tone_row.addWidget(QLabel("Verbosity:"))
-        self.verbosity_combo = QComboBox()
-        self.verbosity_combo.setMinimumWidth(100)
-        for verbosity_key in ["none", "minimum", "short", "medium", "maximum"]:
-            self.verbosity_combo.addItem(VERBOSITY_DISPLAY_NAMES[verbosity_key], verbosity_key)
-        idx = self.verbosity_combo.findData(self.config.verbosity_reduction)
-        if idx >= 0:
-            self.verbosity_combo.setCurrentIndex(idx)
-        self.verbosity_combo.currentIndexChanged.connect(self._on_verbosity_changed)
-        format_tone_row.addWidget(self.verbosity_combo)
-
-        format_tone_row.addStretch()
-        prompt_options_layout.addLayout(format_tone_row)
-
-        # User Profile settings (conditionally visible)
-        self.email_settings_frame = QFrame()
-        self.email_settings_frame.setStyleSheet("""
-            QFrame {
-                background-color: #e9ecef;
+                color: #495057;
                 border: 1px solid #ced4da;
                 border-radius: 4px;
-                padding: 6px;
-                margin-top: 4px;
+                font-size: 12px;
+                padding: 6px 16px;
+            }
+            QPushButton:hover {
+                background-color: #e9ecef;
+                border-color: #adb5bd;
             }
         """)
+        configure_prompt_btn.clicked.connect(self._open_prompt_options_dialog)
+        prompt_config_layout.addWidget(configure_prompt_btn)
 
-        email_form = QFormLayout(self.email_settings_frame)
-        email_form.setSpacing(6)
-        email_form.setContentsMargins(8, 6, 8, 6)
-        email_form.setFieldGrowthPolicy(QFormLayout.FieldGrowthPolicy.ExpandingFieldsGrow)
+        # Indicator showing active enhancements
+        self.prompt_indicator_label = QLabel()
+        self.prompt_indicator_label.setStyleSheet("color: #6c757d; font-size: 11px;")
+        self._update_prompt_indicator()
+        prompt_config_layout.addWidget(self.prompt_indicator_label)
 
-        # Name field
-        self.user_name_edit = QLineEdit(self.config.user_name)
-        self.user_name_edit.setPlaceholderText("e.g., Daniel Rosehill")
-        self.user_name_edit.textChanged.connect(self._on_email_settings_changed)
-        email_form.addRow("Your name:", self.user_name_edit)
-
-        # Email field
-        self.user_email_edit = QLineEdit(self.config.user_email)
-        self.user_email_edit.setPlaceholderText("e.g., daniel@example.com")
-        self.user_email_edit.textChanged.connect(self._on_email_settings_changed)
-        email_form.addRow("Email address:", self.user_email_edit)
-
-        # Phone field
-        self.user_phone_edit = QLineEdit(self.config.user_phone)
-        self.user_phone_edit.setPlaceholderText("e.g., +972-555-1234")
-        self.user_phone_edit.textChanged.connect(self._on_email_settings_changed)
-        email_form.addRow("Phone number:", self.user_phone_edit)
-
-        # Sign-off field
-        self.signoff_combo = QComboBox()
-        self.signoff_combo.setEditable(True)
-        for signoff in EMAIL_SIGNOFFS:
-            self.signoff_combo.addItem(signoff)
-        idx = self.signoff_combo.findText(self.config.email_signature)
-        if idx >= 0:
-            self.signoff_combo.setCurrentIndex(idx)
-        else:
-            self.signoff_combo.setEditText(self.config.email_signature)
-        self.signoff_combo.currentTextChanged.connect(self._on_email_settings_changed)
-        email_form.addRow("Email sign-off:", self.signoff_combo)
-
-        prompt_options_layout.addWidget(self.email_settings_frame)
-
-        # Show/hide email settings based on current format
-        self._update_email_settings_visibility()
-
-        layout.addWidget(self.prompt_options_frame)
+        prompt_config_layout.addStretch()
+        layout.addLayout(prompt_config_layout)
 
         # Prompt Stack Section (new multi-select system)
         prompt_stack_header = QHBoxLayout()
@@ -1453,13 +573,26 @@ class MainWindow(QMainWindow):
 
         format_quick_select_layout.addStretch()
 
-        # Add label pointing to Formats tab
-        more_formats_label = QLabel('<a href="#formats" style="color: #007bff; text-decoration: none;">More formats →</a>')
-        more_formats_label.setTextFormat(Qt.TextFormat.RichText)
-        more_formats_label.setToolTip("Click to open the Formats tab for more format options")
-        more_formats_label.linkActivated.connect(lambda: self.tabs.setCurrentIndex(6))  # Switch to Formats tab
-        more_formats_label.setCursor(Qt.CursorShape.PointingHandCursor)
-        format_quick_select_layout.addWidget(more_formats_label)
+        # Add expand/collapse button for all formats
+        self.all_formats_toggle = QPushButton("▶ All Formats")
+        self.all_formats_toggle.setFixedHeight(32)
+        self.all_formats_toggle.setStyleSheet("""
+            QPushButton {
+                background-color: #f8f9fa;
+                color: #495057;
+                border: 2px solid #ced4da;
+                border-radius: 6px;
+                font-weight: bold;
+                font-size: 12px;
+                padding: 4px 12px;
+            }
+            QPushButton:hover {
+                background-color: #e9ecef;
+                border-color: #adb5bd;
+            }
+        """)
+        self.all_formats_toggle.clicked.connect(self._toggle_all_formats_section)
+        format_quick_select_layout.addWidget(self.all_formats_toggle)
 
         # Style the format buttons
         format_button_style = """
@@ -1504,6 +637,13 @@ class MainWindow(QMainWindow):
             self.general_format_btn.setChecked(True)
 
         layout.addLayout(format_quick_select_layout)
+
+        # Collapsible all formats widget
+        from .formats_widget import FormatsWidget
+        self.formats_widget = FormatsWidget(self.config)
+        self.formats_widget.setVisible(False)  # Start collapsed
+        layout.addWidget(self.formats_widget)
+
         layout.addSpacing(8)
 
         # Recording status and duration
@@ -1748,40 +888,28 @@ class MainWindow(QMainWindow):
         self._update_mic_display()
         self._update_cost_display()
 
-        self.tabs.addTab(record_tab, "Record")
+        self.tabs.addTab(record_tab, "🎙️ Record")
 
         # File Transcription tab (right after Record)
         self.file_transcription_widget = FileTranscriptionWidget(config=self.config)
-        self.tabs.addTab(self.file_transcription_widget, "File")
+        self.tabs.addTab(self.file_transcription_widget, "📁 File")
 
         # History tab
         self.history_widget = HistoryWidget(config=self.config)
         self.history_widget.transcription_selected.connect(self.on_history_transcription_selected)
-        self.tabs.addTab(self.history_widget, "History")
+        self.tabs.addTab(self.history_widget, "📝 History")
 
-        # Cost tab
-        self.cost_widget = CostWidget()
-        self.tabs.addTab(self.cost_widget, "Cost")
+        # Analytics tab (combines Cost + Analysis)
+        self.analytics_widget = AnalyticsWidget()
+        self.tabs.addTab(self.analytics_widget, "📊 Analytics")
 
-        # Analysis tab
-        self.analysis_widget = AnalysisWidget()
-        self.tabs.addTab(self.analysis_widget, "Analysis")
-
-        # Models tab
-        self.models_widget = ModelsWidget()
-        self.tabs.addTab(self.models_widget, "Models")
-
-        # Formats tab
-        self.formats_widget = FormatsWidget(self.config)
-        self.tabs.addTab(self.formats_widget, "Formats")
-
-        # Mic Test tab
-        self.mic_test_widget = MicTestWidget()
-        self.tabs.addTab(self.mic_test_widget, "Mic Test")
+        # Settings tab (consolidates all settings)
+        self.settings_widget = SettingsWidget(self.config, self.recorder)
+        self.tabs.addTab(self.settings_widget, "⚙️ Settings")
 
         # About tab
         self.about_widget = AboutWidget()
-        self.tabs.addTab(self.about_widget, "About")
+        self.tabs.addTab(self.about_widget, "ℹ️ About")
 
         # Refresh data when switching tabs
         self.tabs.currentChanged.connect(self.on_tab_changed)
@@ -2068,16 +1196,14 @@ class MainWindow(QMainWindow):
 
     def on_tab_changed(self, index: int):
         """Handle tab change - refresh data in the selected tab."""
-        # Tabs: 0=Record, 1=File, 2=History, 3=Cost, 4=Analysis, 5=Models, 6=Formats, 7=Mic Test, 8=About
+        # Tabs: 0=Record, 1=File, 2=History, 3=Analytics, 4=Settings, 5=About
         if index == 2:  # History tab
             self.history_widget.refresh()
-        elif index == 3:  # Cost tab
-            self.cost_widget.refresh()
-        elif index == 4:  # Analysis tab
-            self.analysis_widget.refresh()
-        elif index == 6:  # Formats tab
-            self.formats_widget.refresh()
-        # File (1), Models (5), Mic Test (7), About (8) don't need refresh
+        elif index == 3:  # Analytics tab
+            self.analytics_widget.refresh()
+        elif index == 4:  # Settings tab
+            self.settings_widget.refresh()
+        # Record (0), File (1), About (5) don't need refresh
 
     def on_history_transcription_selected(self, text: str):
         """Handle transcription selected from history - put in editor."""
@@ -2209,17 +1335,42 @@ class MainWindow(QMainWindow):
         self.standard_btn.blockSignals(False)
         self.budget_btn.blockSignals(False)
 
-    def _toggle_prompt_options(self):
-        """Toggle visibility of formatting prompt panel."""
-        visible = not self.prompt_options_frame.isVisible()
-        self.prompt_options_frame.setVisible(visible)
-        self.prompt_toggle_btn.setText("▼ Formatting Prompt" if visible else "▶ Formatting Prompt")
+    def _open_prompt_options_dialog(self):
+        """Open the prompt options configuration dialog."""
+        dialog = PromptOptionsDialog(self.config, self)
+        dialog.settings_changed.connect(self._update_prompt_indicator)
+        dialog.settings_changed.connect(lambda: self.formats_widget.refresh() if hasattr(self, 'formats_widget') else None)
+        dialog.exec()
+
+    def _update_prompt_indicator(self):
+        """Update the indicator showing active prompt enhancements."""
+        # Count enabled optional enhancements
+        enabled_count = sum(
+            1 for field_name, _, _ in OPTIONAL_PROMPT_COMPONENTS
+            if getattr(self.config, field_name, False)
+        )
+
+        if enabled_count == 0:
+            self.prompt_indicator_label.setText("")
+        elif enabled_count == 1:
+            self.prompt_indicator_label.setText("1 enhancement enabled")
+        else:
+            self.prompt_indicator_label.setText(f"{enabled_count} enhancements enabled")
 
     def _toggle_prompt_stack_section(self):
         """Toggle visibility of prompt stack section."""
         visible = not self.prompt_stack_widget.isVisible()
         self.prompt_stack_widget.setVisible(visible)
         self.prompt_stack_toggle.setText("▼" if visible else "▶")
+
+    def _toggle_all_formats_section(self):
+        """Toggle visibility of all formats section."""
+        visible = not self.formats_widget.isVisible()
+        self.formats_widget.setVisible(visible)
+        self.all_formats_toggle.setText(("▼ " if visible else "▶ ") + "All Formats")
+        if visible:
+            # Refresh formats when opening
+            self.formats_widget.refresh()
 
     def _on_prompt_elements_changed(self, element_keys: list):
         """Handle changes to selected prompt elements from the stack widget."""
@@ -2232,116 +1383,15 @@ class MainWindow(QMainWindow):
         self.config.use_prompt_stacks = self.use_prompt_stacks_checkbox.isChecked()
         save_config(self.config)
 
-    def _on_prompt_option_changed(self):
-        """Handle prompt option checkbox changes - save immediately."""
-        for field_name, checkbox in self.prompt_checkboxes.items():
-            setattr(self.config, field_name, checkbox.isChecked())
-        save_config(self.config)
-
-    def _on_format_search_changed(self, text: str):
-        """Handle format search text changes."""
-        # Check if the entered text exactly matches a format name
-        for format_key, display_name in FORMAT_DISPLAY_NAMES.items():
-            if display_name.lower() == text.lower():
-                self.config.format_preset = format_key
-                save_config(self.config)
-                self._update_email_settings_visibility()
-                if hasattr(self, 'formats_widget'):
-                    self.formats_widget.refresh()
-                break
-
-    def _on_format_selected(self, text: str):
-        """Handle format selection from completer."""
-        # Find the format key that matches the display name
-        for format_key, display_name in FORMAT_DISPLAY_NAMES.items():
-            if display_name == text:
-                self.config.format_preset = format_key
-                save_config(self.config)
-                self._update_email_settings_visibility()
-                if hasattr(self, 'formats_widget'):
-                    self.formats_widget.refresh()
-                break
-
-        # Sync quick format buttons
-        if format_key == "general":
-            self.general_format_btn.setChecked(True)
-        elif format_key == "email":
-            self.email_format_btn.setChecked(True)
-        elif format_key == "ai_prompt":
-            self.ai_prompt_format_btn.setChecked(True)
-        elif format_key == "system_prompt":
-            self.system_prompt_format_btn.setChecked(True)
-        elif format_key == "dev_prompt":
-            self.dev_prompt_format_btn.setChecked(True)
-        elif format_key == "todo":
-            self.todo_format_btn.setChecked(True)
-        else:
-            # If another format is selected from dropdown or Formats tab,
-            # uncheck all quick buttons
-            self.format_button_group.setExclusive(False)
-            self.general_format_btn.setChecked(False)
-            self.email_format_btn.setChecked(False)
-            self.ai_prompt_format_btn.setChecked(False)
-            self.system_prompt_format_btn.setChecked(False)
-            self.dev_prompt_format_btn.setChecked(False)
-            self.todo_format_btn.setChecked(False)
-            self.format_button_group.setExclusive(True)
-
-    def _on_formality_changed(self, button):
-        """Handle formality radio button change."""
-        formality_key = button.property("formality_key")
-        self.config.formality_level = formality_key
-        save_config(self.config)
-
-    def _on_verbosity_changed(self, index: int):
-        """Handle verbosity reduction selection change."""
-        verbosity_key = self.verbosity_combo.currentData()
-        self.config.verbosity_reduction = verbosity_key
-        save_config(self.config)
-
-    def _on_email_settings_changed(self):
-        """Handle user profile changes (name, email, phone, sign-off)."""
-        self.config.user_name = self.user_name_edit.text()
-        self.config.user_email = self.user_email_edit.text()
-        self.config.user_phone = self.user_phone_edit.text()
-        self.config.email_signature = self.signoff_combo.currentText()
-        save_config(self.config)
-
-    def _update_email_settings_visibility(self):
-        """Show email settings only when format is 'email'."""
-        is_email = self.config.format_preset == "email"
-        self.email_settings_frame.setVisible(is_email)
-
     def _set_quick_format(self, format_key: str):
         """Handle quick format button clicks."""
         # Update the config
         self.config.format_preset = format_key
         save_config(self.config)
 
-        # Sync the format search field
-        format_name = FORMAT_DISPLAY_NAMES[format_key]
-        self.format_search.setText(format_name)
-
-        # Update email settings visibility
-        self._update_email_settings_visibility()
-
         # Refresh Formats tab if it's visible
         if hasattr(self, 'formats_widget'):
             self.formats_widget.refresh()
-
-        # Update button states (should already be handled by QButtonGroup, but ensure sync)
-        if format_key == "general":
-            self.general_format_btn.setChecked(True)
-        elif format_key == "email":
-            self.email_format_btn.setChecked(True)
-        elif format_key == "ai_prompt":
-            self.ai_prompt_format_btn.setChecked(True)
-        elif format_key == "system_prompt":
-            self.system_prompt_format_btn.setChecked(True)
-        elif format_key == "dev_prompt":
-            self.dev_prompt_format_btn.setChecked(True)
-        elif format_key == "todo":
-            self.todo_format_btn.setChecked(True)
 
     def get_selected_microphone_index(self):
         """Get the index of the configured microphone.
@@ -3035,17 +2085,14 @@ class MainWindow(QMainWindow):
             QTimer.singleShot(2000, lambda: self.status_label.setStyleSheet("color: #666;"))
 
     def show_settings(self):
-        """Show settings dialog."""
-        dialog = SettingsDialog(self.config, self.recorder, self)
-        if dialog.exec() == QDialog.DialogCode.Accepted:
-            self.config = load_config()
-            self.recorder.sample_rate = self.config.sample_rate
-            # Re-register hotkeys with new settings
-            self._register_hotkeys()
-            # Re-setup in-focus shortcuts
-            self._setup_configurable_shortcuts()
-            # Update mic display
-            self._update_mic_display()
+        """Show settings tab."""
+        # Switch to Settings tab (index 4)
+        self.tabs.setCurrentIndex(4)
+        # Show window if minimized
+        if self.isMinimized():
+            self.showNormal()
+        self.raise_()
+        self.activateWindow()
 
     def show_window(self):
         """Show and raise the window."""
