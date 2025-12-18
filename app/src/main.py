@@ -589,6 +589,14 @@ class MainWindow(QMainWindow):
         self.format_button_group.addButton(self.todo_format_btn)
         format_row2.addWidget(self.todo_format_btn)
 
+        # Social Post button
+        self.social_post_format_btn = QPushButton("Social Post")
+        self.social_post_format_btn.setCheckable(True)
+        self.social_post_format_btn.setMinimumHeight(32)
+        self.social_post_format_btn.clicked.connect(lambda: self._set_quick_format("social_post"))
+        self.format_button_group.addButton(self.social_post_format_btn)
+        format_row2.addWidget(self.social_post_format_btn)
+
         # Manage Formats button
         manage_formats_btn = QPushButton("⚙️ Manage Formats...")
         manage_formats_btn.setFixedHeight(32)
@@ -614,8 +622,9 @@ class MainWindow(QMainWindow):
 
         format_quick_select_layout.addLayout(format_row2)
 
-        # Style the format buttons
-        format_button_style = """
+        # Style the format buttons with color-coding by category
+        # General formats (gray)
+        general_style = """
             QPushButton {
                 background-color: #e9ecef;
                 color: #495057;
@@ -630,19 +639,106 @@ class MainWindow(QMainWindow):
                 border-color: #adb5bd;
             }
             QPushButton:checked {
-                background-color: #007bff;
+                background-color: #6c757d;
                 color: white;
-                border-color: #007bff;
+                border-color: #6c757d;
             }
         """
-        self.general_format_btn.setStyleSheet(format_button_style)
-        self.verbatim_format_btn.setStyleSheet(format_button_style)
-        self.email_format_btn.setStyleSheet(format_button_style)
-        self.ai_prompt_format_btn.setStyleSheet(format_button_style)
-        self.system_prompt_format_btn.setStyleSheet(format_button_style)
-        self.dev_prompt_format_btn.setStyleSheet(format_button_style)
-        self.tech_docs_format_btn.setStyleSheet(format_button_style)
-        self.todo_format_btn.setStyleSheet(format_button_style)
+        # Work formats (blue)
+        work_style = """
+            QPushButton {
+                background-color: #cfe2ff;
+                color: #084298;
+                border: 2px solid #9ec5fe;
+                border-radius: 6px;
+                font-weight: bold;
+                font-size: 12px;
+                padding: 4px 12px;
+            }
+            QPushButton:hover {
+                background-color: #b6d4fe;
+                border-color: #6ea8fe;
+            }
+            QPushButton:checked {
+                background-color: #0d6efd;
+                color: white;
+                border-color: #0d6efd;
+            }
+        """
+        # Documentation formats (purple)
+        docs_style = """
+            QPushButton {
+                background-color: #e0cffc;
+                color: #59359a;
+                border: 2px solid #c29ffa;
+                border-radius: 6px;
+                font-weight: bold;
+                font-size: 12px;
+                padding: 4px 12px;
+            }
+            QPushButton:hover {
+                background-color: #d3b9f8;
+                border-color: #a370f7;
+            }
+            QPushButton:checked {
+                background-color: #6f42c1;
+                color: white;
+                border-color: #6f42c1;
+            }
+        """
+        # List formats (green)
+        list_style = """
+            QPushButton {
+                background-color: #d1e7dd;
+                color: #0f5132;
+                border: 2px solid #a3cfbb;
+                border-radius: 6px;
+                font-weight: bold;
+                font-size: 12px;
+                padding: 4px 12px;
+            }
+            QPushButton:hover {
+                background-color: #badbcc;
+                border-color: #75b798;
+            }
+            QPushButton:checked {
+                background-color: #198754;
+                color: white;
+                border-color: #198754;
+            }
+        """
+        # Creative formats (orange)
+        creative_style = """
+            QPushButton {
+                background-color: #ffe5d0;
+                color: #984c0c;
+                border: 2px solid #ffc99a;
+                border-radius: 6px;
+                font-weight: bold;
+                font-size: 12px;
+                padding: 4px 12px;
+            }
+            QPushButton:hover {
+                background-color: #ffd9b8;
+                border-color: #ffb070;
+            }
+            QPushButton:checked {
+                background-color: #fd7e14;
+                color: white;
+                border-color: #fd7e14;
+            }
+        """
+
+        # Apply styles by category
+        self.general_format_btn.setStyleSheet(general_style)
+        self.verbatim_format_btn.setStyleSheet(general_style)
+        self.email_format_btn.setStyleSheet(work_style)
+        self.ai_prompt_format_btn.setStyleSheet(work_style)
+        self.system_prompt_format_btn.setStyleSheet(work_style)
+        self.dev_prompt_format_btn.setStyleSheet(work_style)
+        self.tech_docs_format_btn.setStyleSheet(docs_style)
+        self.todo_format_btn.setStyleSheet(list_style)
+        self.social_post_format_btn.setStyleSheet(creative_style)
 
         # Set initial button state based on config
         if self.config.format_preset == "verbatim":
@@ -659,6 +755,8 @@ class MainWindow(QMainWindow):
             self.tech_docs_format_btn.setChecked(True)
         elif self.config.format_preset == "todo":
             self.todo_format_btn.setChecked(True)
+        elif self.config.format_preset == "social_post":
+            self.social_post_format_btn.setChecked(True)
         else:
             self.general_format_btn.setChecked(True)
 
