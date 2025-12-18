@@ -267,6 +267,12 @@ FORMAT_TEMPLATES = {
         "category": "general",
         "description": "No specific formatting - general cleanup only",
     },
+    "verbatim": {
+        "instruction": "Preserve the original wording and structure as much as possible while applying only essential cleanup.",
+        "adherence": "Keep the transcription very close to the original speech. Only remove obvious filler words, add basic punctuation, and create paragraph breaks. Do not rephrase, restructure, or add formatting beyond the absolute minimum needed for readability.",
+        "category": "general",
+        "description": "Minimal transformation - closest to verbatim transcription",
+    },
     "email": {
         "instruction": "Format the output as an email with an appropriate greeting and sign-off.",
         "adherence": "Follow standard email formatting conventions. Include a clear subject line suggestion if the content is substantial. Use proper email etiquette.",
@@ -437,6 +443,7 @@ FORMAT_TEMPLATES = {
 # Display names for format presets (for UI)
 FORMAT_DISPLAY_NAMES = {
     "general": "General",
+    "verbatim": "Verbatim",
     "email": "Email",
     "ai_prompt": "AI Prompt",
     "dev_prompt": "Development Prompt",

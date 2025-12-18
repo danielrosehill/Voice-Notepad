@@ -352,88 +352,6 @@ class MainWindow(QMainWindow):
         layout.setSpacing(12)
         layout.setContentsMargins(8, 12, 8, 8)
 
-        # Provider and model selection
-        provider_layout = QHBoxLayout()
-
-        provider_layout.addWidget(QLabel("Provider:"))
-        self.provider_combo = QComboBox()
-        self.provider_combo.setIconSize(QSize(16, 16))
-        # Add providers with icons
-        providers = [
-            ("Open Router", "openrouter"),
-            ("Google", "google"),
-            ("OpenAI", "openai"),
-            ("Mistral", "mistral")
-        ]
-        for display_name, provider_key in providers:
-            icon = self._get_provider_icon(provider_key)
-            self.provider_combo.addItem(icon, display_name)
-        # Handle display name mapping for provider
-        provider_map = {
-            "openrouter": "Open Router",
-            "gemini": "Google",
-            "openai": "OpenAI",
-            "mistral": "Mistral",
-        }
-        provider_display = provider_map.get(self.config.selected_provider, self.config.selected_provider.title())
-        self.provider_combo.setCurrentText(provider_display)
-        self.provider_combo.currentTextChanged.connect(self.on_provider_changed)
-        provider_layout.addWidget(self.provider_combo)
-
-        provider_layout.addSpacing(20)
-
-        provider_layout.addWidget(QLabel("Model:"))
-        self.model_combo = QComboBox()
-        self.model_combo.setIconSize(QSize(16, 16))
-        self.update_model_combo()  # Populate based on current provider
-        self.model_combo.currentIndexChanged.connect(self.on_model_changed)
-        provider_layout.addWidget(self.model_combo, 1)
-
-        layout.addLayout(provider_layout)
-
-        # Model tier quick toggle (Standard / Budget)
-        tier_layout = QHBoxLayout()
-        tier_layout.addStretch()
-
-        self.standard_btn = QPushButton("Standard")
-        self.standard_btn.setCheckable(True)
-        self.standard_btn.setMinimumWidth(80)
-        self.standard_btn.clicked.connect(lambda: self.set_model_tier("standard"))
-
-        self.budget_btn = QPushButton("Budget")
-        self.budget_btn.setCheckable(True)
-        self.budget_btn.setMinimumWidth(80)
-        self.budget_btn.clicked.connect(lambda: self.set_model_tier("budget"))
-
-        # Style for tier buttons
-        tier_btn_style = """
-            QPushButton {
-                padding: 4px 12px;
-                border: 1px solid #ccc;
-                border-radius: 4px;
-                background-color: #f8f9fa;
-            }
-            QPushButton:hover {
-                background-color: #e9ecef;
-            }
-            QPushButton:checked {
-                background-color: #007bff;
-                color: white;
-                border-color: #0056b3;
-            }
-        """
-        self.standard_btn.setStyleSheet(tier_btn_style)
-        self.budget_btn.setStyleSheet(tier_btn_style)
-
-        tier_layout.addWidget(self.standard_btn)
-        tier_layout.addWidget(self.budget_btn)
-        tier_layout.addStretch()
-
-        layout.addLayout(tier_layout)
-
-        # Update tier button states based on current model
-        self._update_tier_buttons()
-
         # System Prompt Configuration Button (opens modal dialog)
         prompt_config_layout = QHBoxLayout()
 
@@ -509,6 +427,20 @@ class MainWindow(QMainWindow):
         prompt_stack_header.addStretch()
         layout.addLayout(prompt_stack_header)
 
+        # Quick format selector with help text
+        format_section_layout = QVBoxLayout()
+        format_section_layout.setSpacing(8)
+
+        # Help text explaining the format system
+        format_help = QLabel(
+            "<b>Quick Formats:</b> Pre-configured output styles for common use cases. "
+            "These formats work with the system prompt (configured above) to shape your transcription. "
+            "For more formats, click 'Manage Formats' or use 'Prompt Stacks' for advanced combinations."
+        )
+        format_help.setWordWrap(True)
+        format_help.setStyleSheet("color: #666; font-size: 11px; padding: 4px 0; margin-bottom: 4px;")
+        format_section_layout.addWidget(format_help)
+
         # Quick format selector buttons
         format_quick_select_layout = QHBoxLayout()
         format_quick_select_layout.setSpacing(8)
@@ -527,6 +459,14 @@ class MainWindow(QMainWindow):
         self.general_format_btn.clicked.connect(lambda: self._set_quick_format("general"))
         self.format_button_group.addButton(self.general_format_btn)
         format_quick_select_layout.addWidget(self.general_format_btn)
+
+        # Verbatim button
+        self.verbatim_format_btn = QPushButton("Verbatim")
+        self.verbatim_format_btn.setCheckable(True)
+        self.verbatim_format_btn.setMinimumHeight(32)
+        self.verbatim_format_btn.clicked.connect(lambda: self._set_quick_format("verbatim"))
+        self.format_button_group.addButton(self.verbatim_format_btn)
+        format_quick_select_layout.addWidget(self.verbatim_format_btn)
 
         # Email button
         self.email_format_btn = QPushButton("Email")
@@ -559,6 +499,14 @@ class MainWindow(QMainWindow):
         self.dev_prompt_format_btn.clicked.connect(lambda: self._set_quick_format("dev_prompt"))
         self.format_button_group.addButton(self.dev_prompt_format_btn)
         format_quick_select_layout.addWidget(self.dev_prompt_format_btn)
+
+        # Tech Docs button
+        self.tech_docs_format_btn = QPushButton("Tech Docs")
+        self.tech_docs_format_btn.setCheckable(True)
+        self.tech_docs_format_btn.setMinimumHeight(32)
+        self.tech_docs_format_btn.clicked.connect(lambda: self._set_quick_format("tech_docs"))
+        self.format_button_group.addButton(self.tech_docs_format_btn)
+        format_quick_select_layout.addWidget(self.tech_docs_format_btn)
 
         # To-Do button
         self.todo_format_btn = QPushButton("To-Do")
@@ -613,14 +561,18 @@ class MainWindow(QMainWindow):
             }
         """
         self.general_format_btn.setStyleSheet(format_button_style)
+        self.verbatim_format_btn.setStyleSheet(format_button_style)
         self.email_format_btn.setStyleSheet(format_button_style)
         self.ai_prompt_format_btn.setStyleSheet(format_button_style)
         self.system_prompt_format_btn.setStyleSheet(format_button_style)
         self.dev_prompt_format_btn.setStyleSheet(format_button_style)
+        self.tech_docs_format_btn.setStyleSheet(format_button_style)
         self.todo_format_btn.setStyleSheet(format_button_style)
 
         # Set initial button state based on config
-        if self.config.format_preset == "email":
+        if self.config.format_preset == "verbatim":
+            self.verbatim_format_btn.setChecked(True)
+        elif self.config.format_preset == "email":
             self.email_format_btn.setChecked(True)
         elif self.config.format_preset == "ai_prompt":
             self.ai_prompt_format_btn.setChecked(True)
@@ -628,12 +580,15 @@ class MainWindow(QMainWindow):
             self.system_prompt_format_btn.setChecked(True)
         elif self.config.format_preset == "dev_prompt":
             self.dev_prompt_format_btn.setChecked(True)
+        elif self.config.format_preset == "tech_docs":
+            self.tech_docs_format_btn.setChecked(True)
         elif self.config.format_preset == "todo":
             self.todo_format_btn.setChecked(True)
         else:
             self.general_format_btn.setChecked(True)
 
-        layout.addLayout(format_quick_select_layout)
+        format_section_layout.addLayout(format_quick_select_layout)
+        layout.addLayout(format_section_layout)
 
         layout.addSpacing(8)
 
@@ -1233,99 +1188,6 @@ class MainWindow(QMainWindow):
                 QTimer.singleShot(2000, lambda: self.status_label.setText("Ready"))
                 QTimer.singleShot(2000, lambda: self.status_label.setStyleSheet("color: #666;"))
 
-    def update_model_combo(self):
-        """Update the model dropdown based on selected provider."""
-        self.model_combo.blockSignals(True)
-        self.model_combo.clear()
-
-        provider = self.config.selected_provider.lower()
-        if provider == "openrouter":
-            models = OPENROUTER_MODELS
-            current_model = self.config.openrouter_model
-        elif provider == "gemini":
-            models = GEMINI_MODELS
-            current_model = self.config.gemini_model
-        elif provider == "openai":
-            models = OPENAI_MODELS
-            current_model = self.config.openai_model
-        else:
-            models = MISTRAL_MODELS
-            current_model = self.config.mistral_model
-
-        # Add models with model originator icon
-        for model_id, display_name in models:
-            model_icon = self._get_model_icon(model_id)
-            self.model_combo.addItem(model_icon, display_name, model_id)
-
-        # Select current model
-        idx = self.model_combo.findData(current_model)
-        if idx >= 0:
-            self.model_combo.setCurrentIndex(idx)
-
-        self.model_combo.blockSignals(False)
-
-    def on_provider_changed(self, provider_display: str):
-        """Handle provider change."""
-        # Map display name back to internal name
-        display_to_internal = {
-            "Open Router": "openrouter",
-            "Google": "gemini",
-            "OpenAI": "openai",
-            "Mistral": "mistral",
-        }
-        self.config.selected_provider = display_to_internal.get(provider_display, provider_display.lower())
-        self.update_model_combo()
-        self._update_tier_buttons()
-        save_config(self.config)
-
-    def on_model_changed(self, index: int):
-        """Handle model selection change."""
-        if index < 0:
-            return
-        model_id = self.model_combo.currentData()
-        provider = self.config.selected_provider.lower()
-
-        if provider == "openrouter":
-            self.config.openrouter_model = model_id
-        elif provider == "gemini":
-            self.config.gemini_model = model_id
-        elif provider == "openai":
-            self.config.openai_model = model_id
-        else:
-            self.config.mistral_model = model_id
-
-        save_config(self.config)
-        self._update_tier_buttons()
-
-    def set_model_tier(self, tier: str):
-        """Set the model to the standard or budget tier for the current provider."""
-        provider = self.config.selected_provider.lower()
-        tiers = MODEL_TIERS.get(provider, {})
-        model_id = tiers.get(tier)
-
-        if model_id:
-            # Find and select the model in the dropdown
-            idx = self.model_combo.findData(model_id)
-            if idx >= 0:
-                self.model_combo.setCurrentIndex(idx)
-                # on_model_changed will be triggered and save config + update buttons
-
-    def _update_tier_buttons(self):
-        """Update tier button checked states based on current model."""
-        provider = self.config.selected_provider.lower()
-        tiers = MODEL_TIERS.get(provider, {})
-        current_model = self.model_combo.currentData()
-
-        # Block signals to prevent triggering clicks
-        self.standard_btn.blockSignals(True)
-        self.budget_btn.blockSignals(True)
-
-        self.standard_btn.setChecked(current_model == tiers.get("standard"))
-        self.budget_btn.setChecked(current_model == tiers.get("budget"))
-
-        self.standard_btn.blockSignals(False)
-        self.budget_btn.blockSignals(False)
-
     def _open_prompt_options_dialog(self):
         """Open the prompt options configuration dialog."""
         dialog = PromptOptionsDialog(self.config, self)
@@ -1367,9 +1229,27 @@ class MainWindow(QMainWindow):
         save_config(self.config)
 
     def _set_quick_format(self, format_key: str):
-        """Handle quick format button clicks."""
+        """Handle quick format button clicks.
+
+        For 'verbatim' format, also configures optional enhancements to minimal settings.
+        """
         # Update the config
         self.config.format_preset = format_key
+
+        # If verbatim is selected, configure minimal optional enhancements
+        if format_key == "verbatim":
+            # Enable only "follow verbal instructions"
+            self.config.prompt_follow_instructions = True
+
+            # Disable all other optional enhancements
+            self.config.prompt_add_subheadings = False
+            self.config.prompt_markdown_formatting = False
+            self.config.prompt_remove_unintentional_dialogue = False
+            self.config.prompt_enhancement_enabled = False
+
+            # Update the prompt indicator to reflect changes
+            self._update_prompt_indicator()
+
         save_config(self.config)
 
     def get_selected_microphone_index(self):

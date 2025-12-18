@@ -12,9 +12,13 @@ from PyQt6.QtGui import QFont
 from .config import (
     Config, save_config, load_env_keys,
     GEMINI_MODELS, OPENAI_MODELS, MISTRAL_MODELS, OPENROUTER_MODELS,
+    MODEL_TIERS,
 )
 from .formats_widget import FormatsWidget
 from .mic_test_widget import MicTestWidget
+from PyQt6.QtCore import QSize
+from PyQt6.QtGui import QIcon
+from pathlib import Path
 
 
 class APIKeysWidget(QWidget):
@@ -501,6 +505,254 @@ class DatabaseWidget(QWidget):
                 QMessageBox.critical(self, "Clear Failed", f"Error: {e}")
 
 
+class ModelSelectionWidget(QWidget):
+    """Model and provider selection section."""
+
+    def __init__(self, config: Config, parent=None):
+        super().__init__(parent)
+        self.config = config
+        self._init_ui()
+
+    def _init_ui(self):
+        layout = QVBoxLayout(self)
+        layout.setSpacing(16)
+        layout.setContentsMargins(16, 16, 16, 16)
+
+        # Title
+        title = QLabel("Model Selection")
+        title.setFont(QFont("Sans", 14, QFont.Weight.Bold))
+        layout.addWidget(title)
+
+        desc = QLabel(
+            "Choose your transcription provider and model. "
+            "Once you find a model that works within your budget, you typically won't need to change it often."
+        )
+        desc.setWordWrap(True)
+        desc.setStyleSheet("color: #666; margin-bottom: 12px;")
+        layout.addWidget(desc)
+
+        # Provider and model selection
+        selection_group = QGroupBox("Provider & Model")
+        selection_layout = QVBoxLayout(selection_group)
+        selection_layout.setSpacing(12)
+
+        # Provider selection
+        provider_layout = QHBoxLayout()
+        provider_layout.addWidget(QLabel("Provider:"))
+
+        self.provider_combo = QComboBox()
+        self.provider_combo.setIconSize(QSize(16, 16))
+
+        # Add providers with icons
+        providers = [
+            ("Open Router", "openrouter"),
+            ("Google", "google"),
+            ("OpenAI", "openai"),
+            ("Mistral", "mistral")
+        ]
+        for display_name, provider_key in providers:
+            icon = self._get_provider_icon(provider_key)
+            self.provider_combo.addItem(icon, display_name)
+
+        # Set current provider
+        provider_map = {
+            "openrouter": "Open Router",
+            "gemini": "Google",
+            "openai": "OpenAI",
+            "mistral": "Mistral",
+        }
+        provider_display = provider_map.get(self.config.selected_provider, self.config.selected_provider.title())
+        self.provider_combo.setCurrentText(provider_display)
+        self.provider_combo.currentTextChanged.connect(self._on_provider_changed)
+        provider_layout.addWidget(self.provider_combo, 1)
+
+        selection_layout.addLayout(provider_layout)
+
+        # Model selection
+        model_layout = QHBoxLayout()
+        model_layout.addWidget(QLabel("Model:"))
+
+        self.model_combo = QComboBox()
+        self.model_combo.setIconSize(QSize(16, 16))
+        self._update_model_combo()
+        self.model_combo.currentIndexChanged.connect(self._on_model_changed)
+        model_layout.addWidget(self.model_combo, 1)
+
+        selection_layout.addLayout(model_layout)
+
+        # Model tier quick toggle (Standard / Budget)
+        tier_layout = QHBoxLayout()
+        tier_layout.addWidget(QLabel("Quick Select:"))
+
+        self.standard_btn = QPushButton("Standard")
+        self.standard_btn.setCheckable(True)
+        self.standard_btn.setMinimumWidth(80)
+        self.standard_btn.clicked.connect(lambda: self._set_model_tier("standard"))
+
+        self.budget_btn = QPushButton("Budget")
+        self.budget_btn.setCheckable(True)
+        self.budget_btn.setMinimumWidth(80)
+        self.budget_btn.clicked.connect(lambda: self._set_model_tier("budget"))
+
+        # Style for tier buttons
+        tier_btn_style = """
+            QPushButton {
+                padding: 4px 12px;
+                border: 1px solid #ccc;
+                border-radius: 4px;
+                background-color: #f8f9fa;
+            }
+            QPushButton:hover {
+                background-color: #e9ecef;
+            }
+            QPushButton:checked {
+                background-color: #007bff;
+                color: white;
+                border-color: #0056b3;
+            }
+        """
+        self.standard_btn.setStyleSheet(tier_btn_style)
+        self.budget_btn.setStyleSheet(tier_btn_style)
+
+        tier_layout.addWidget(self.standard_btn)
+        tier_layout.addWidget(self.budget_btn)
+        tier_layout.addStretch()
+
+        selection_layout.addLayout(tier_layout)
+
+        # Update tier button states
+        self._update_tier_buttons()
+
+        layout.addWidget(selection_group)
+        layout.addStretch()
+
+    def _get_provider_icon(self, provider: str) -> QIcon:
+        """Get the icon for a given provider."""
+        icons_dir = Path(__file__).parent / "icons"
+        icon_map = {
+            "openrouter": "or_icon.png",
+            "open router": "or_icon.png",
+            "gemini": "gemini_icon.png",
+            "google": "gemini_icon.png",
+            "openai": "openai_icon.png",
+            "mistral": "mistral_icon.png",
+        }
+        icon_filename = icon_map.get(provider.lower(), "")
+        if icon_filename:
+            icon_path = icons_dir / icon_filename
+            if icon_path.exists():
+                return QIcon(str(icon_path))
+        return QIcon()
+
+    def _get_model_icon(self, model_id: str) -> QIcon:
+        """Get the icon for a model based on its originator."""
+        icons_dir = Path(__file__).parent / "icons"
+        model_lower = model_id.lower()
+
+        if model_lower.startswith("google/") or model_lower.startswith("gemini"):
+            icon_filename = "gemini_icon.png"
+        elif model_lower.startswith("openai/") or model_lower.startswith("gpt"):
+            icon_filename = "openai_icon.png"
+        elif model_lower.startswith("mistralai/") or model_lower.startswith("voxtral"):
+            icon_filename = "mistral_icon.png"
+        else:
+            return QIcon()
+
+        icon_path = icons_dir / icon_filename
+        if icon_path.exists():
+            return QIcon(str(icon_path))
+        return QIcon()
+
+    def _update_model_combo(self):
+        """Update the model dropdown based on selected provider."""
+        self.model_combo.blockSignals(True)
+        self.model_combo.clear()
+
+        provider = self.config.selected_provider.lower()
+        if provider == "openrouter":
+            models = OPENROUTER_MODELS
+            current_model = self.config.openrouter_model
+        elif provider == "gemini":
+            models = GEMINI_MODELS
+            current_model = self.config.gemini_model
+        elif provider == "openai":
+            models = OPENAI_MODELS
+            current_model = self.config.openai_model
+        else:
+            models = MISTRAL_MODELS
+            current_model = self.config.mistral_model
+
+        # Add models with model originator icon
+        for model_id, display_name in models:
+            model_icon = self._get_model_icon(model_id)
+            self.model_combo.addItem(model_icon, display_name, model_id)
+
+        # Select current model
+        idx = self.model_combo.findData(current_model)
+        if idx >= 0:
+            self.model_combo.setCurrentIndex(idx)
+
+        self.model_combo.blockSignals(False)
+
+    def _on_provider_changed(self, provider_display: str):
+        """Handle provider change."""
+        display_to_internal = {
+            "Open Router": "openrouter",
+            "Google": "gemini",
+            "OpenAI": "openai",
+            "Mistral": "mistral",
+        }
+        self.config.selected_provider = display_to_internal.get(provider_display, provider_display.lower())
+        self._update_model_combo()
+        self._update_tier_buttons()
+        save_config(self.config)
+
+    def _on_model_changed(self, index: int):
+        """Handle model selection change."""
+        if index < 0:
+            return
+        model_id = self.model_combo.currentData()
+        provider = self.config.selected_provider.lower()
+
+        if provider == "openrouter":
+            self.config.openrouter_model = model_id
+        elif provider == "gemini":
+            self.config.gemini_model = model_id
+        elif provider == "openai":
+            self.config.openai_model = model_id
+        else:
+            self.config.mistral_model = model_id
+
+        save_config(self.config)
+        self._update_tier_buttons()
+
+    def _set_model_tier(self, tier: str):
+        """Set the model to the standard or budget tier for the current provider."""
+        provider = self.config.selected_provider.lower()
+        tiers = MODEL_TIERS.get(provider, {})
+        model_id = tiers.get(tier)
+
+        if model_id:
+            idx = self.model_combo.findData(model_id)
+            if idx >= 0:
+                self.model_combo.setCurrentIndex(idx)
+
+    def _update_tier_buttons(self):
+        """Update tier button checked states based on current model."""
+        provider = self.config.selected_provider.lower()
+        tiers = MODEL_TIERS.get(provider, {})
+        current_model = self.model_combo.currentData()
+
+        self.standard_btn.blockSignals(True)
+        self.budget_btn.blockSignals(True)
+
+        self.standard_btn.setChecked(current_model == tiers.get("standard"))
+        self.budget_btn.setChecked(current_model == tiers.get("budget"))
+
+        self.standard_btn.blockSignals(False)
+        self.budget_btn.blockSignals(False)
+
+
 class SettingsWidget(QWidget):
     """Unified settings widget with tabbed sections."""
 
@@ -520,6 +772,7 @@ class SettingsWidget(QWidget):
         self.tabs.setDocumentMode(True)
 
         # Add sections as tabs
+        self.tabs.addTab(ModelSelectionWidget(self.config), "Model Selection")
         self.tabs.addTab(APIKeysWidget(self.config), "API Keys")
         self.tabs.addTab(AudioMicWidget(self.config, self.recorder), "Audio & Mic")
         self.tabs.addTab(FormatsWidget(self.config), "Output Formats")
@@ -533,6 +786,6 @@ class SettingsWidget(QWidget):
     def refresh(self):
         """Refresh all sub-widgets."""
         # Refresh formats widget specifically
-        formats_widget = self.tabs.widget(2)  # Output Formats tab
+        formats_widget = self.tabs.widget(3)  # Output Formats tab (was 2, now 3 after adding Model Selection)
         if hasattr(formats_widget, 'refresh'):
             formats_widget.refresh()
