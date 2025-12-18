@@ -499,16 +499,20 @@ class MainWindow(QMainWindow):
         format_help.setStyleSheet("color: #666; font-size: 11px; padding: 4px 0; margin-bottom: 4px;")
         format_section_layout.addWidget(format_help)
 
-        # Quick format selector buttons
-        format_quick_select_layout = QHBoxLayout()
+        # Quick format selector buttons - using grid layout for two rows
+        format_quick_select_layout = QVBoxLayout()
         format_quick_select_layout.setSpacing(8)
-
-        format_label = QLabel("Format:")
-        format_label.setStyleSheet("font-weight: bold; color: #495057;")
-        format_quick_select_layout.addWidget(format_label)
 
         # Create button group for mutual exclusivity
         self.format_button_group = QButtonGroup(self)
+
+        # First row of format buttons
+        format_row1 = QHBoxLayout()
+        format_row1.setSpacing(8)
+
+        format_label = QLabel("Format:")
+        format_label.setStyleSheet("font-weight: bold; color: #495057;")
+        format_row1.addWidget(format_label)
 
         # General button (default)
         self.general_format_btn = QPushButton("General")
@@ -516,7 +520,7 @@ class MainWindow(QMainWindow):
         self.general_format_btn.setMinimumHeight(32)
         self.general_format_btn.clicked.connect(lambda: self._set_quick_format("general"))
         self.format_button_group.addButton(self.general_format_btn)
-        format_quick_select_layout.addWidget(self.general_format_btn)
+        format_row1.addWidget(self.general_format_btn)
 
         # Verbatim button
         self.verbatim_format_btn = QPushButton("Verbatim")
@@ -524,7 +528,7 @@ class MainWindow(QMainWindow):
         self.verbatim_format_btn.setMinimumHeight(32)
         self.verbatim_format_btn.clicked.connect(lambda: self._set_quick_format("verbatim"))
         self.format_button_group.addButton(self.verbatim_format_btn)
-        format_quick_select_layout.addWidget(self.verbatim_format_btn)
+        format_row1.addWidget(self.verbatim_format_btn)
 
         # Email button
         self.email_format_btn = QPushButton("Email")
@@ -532,7 +536,7 @@ class MainWindow(QMainWindow):
         self.email_format_btn.setMinimumHeight(32)
         self.email_format_btn.clicked.connect(lambda: self._set_quick_format("email"))
         self.format_button_group.addButton(self.email_format_btn)
-        format_quick_select_layout.addWidget(self.email_format_btn)
+        format_row1.addWidget(self.email_format_btn)
 
         # AI Prompt button
         self.ai_prompt_format_btn = QPushButton("AI Prompt")
@@ -540,7 +544,7 @@ class MainWindow(QMainWindow):
         self.ai_prompt_format_btn.setMinimumHeight(32)
         self.ai_prompt_format_btn.clicked.connect(lambda: self._set_quick_format("ai_prompt"))
         self.format_button_group.addButton(self.ai_prompt_format_btn)
-        format_quick_select_layout.addWidget(self.ai_prompt_format_btn)
+        format_row1.addWidget(self.ai_prompt_format_btn)
 
         # System Prompt button
         self.system_prompt_format_btn = QPushButton("System Prompt")
@@ -548,7 +552,18 @@ class MainWindow(QMainWindow):
         self.system_prompt_format_btn.setMinimumHeight(32)
         self.system_prompt_format_btn.clicked.connect(lambda: self._set_quick_format("system_prompt"))
         self.format_button_group.addButton(self.system_prompt_format_btn)
-        format_quick_select_layout.addWidget(self.system_prompt_format_btn)
+        format_row1.addWidget(self.system_prompt_format_btn)
+
+        format_row1.addStretch()
+
+        format_quick_select_layout.addLayout(format_row1)
+
+        # Second row of format buttons
+        format_row2 = QHBoxLayout()
+        format_row2.setSpacing(8)
+
+        # Add spacing to align with first row (compensate for "Format:" label)
+        format_row2.addSpacing(70)
 
         # Dev Prompt button
         self.dev_prompt_format_btn = QPushButton("Dev Prompt")
@@ -556,7 +571,7 @@ class MainWindow(QMainWindow):
         self.dev_prompt_format_btn.setMinimumHeight(32)
         self.dev_prompt_format_btn.clicked.connect(lambda: self._set_quick_format("dev_prompt"))
         self.format_button_group.addButton(self.dev_prompt_format_btn)
-        format_quick_select_layout.addWidget(self.dev_prompt_format_btn)
+        format_row2.addWidget(self.dev_prompt_format_btn)
 
         # Tech Docs button
         self.tech_docs_format_btn = QPushButton("Tech Docs")
@@ -564,7 +579,7 @@ class MainWindow(QMainWindow):
         self.tech_docs_format_btn.setMinimumHeight(32)
         self.tech_docs_format_btn.clicked.connect(lambda: self._set_quick_format("tech_docs"))
         self.format_button_group.addButton(self.tech_docs_format_btn)
-        format_quick_select_layout.addWidget(self.tech_docs_format_btn)
+        format_row2.addWidget(self.tech_docs_format_btn)
 
         # To-Do button
         self.todo_format_btn = QPushButton("To-Do")
@@ -572,9 +587,7 @@ class MainWindow(QMainWindow):
         self.todo_format_btn.setMinimumHeight(32)
         self.todo_format_btn.clicked.connect(lambda: self._set_quick_format("todo"))
         self.format_button_group.addButton(self.todo_format_btn)
-        format_quick_select_layout.addWidget(self.todo_format_btn)
-
-        format_quick_select_layout.addStretch()
+        format_row2.addWidget(self.todo_format_btn)
 
         # Manage Formats button
         manage_formats_btn = QPushButton("⚙️ Manage Formats...")
@@ -595,7 +608,11 @@ class MainWindow(QMainWindow):
             }
         """)
         manage_formats_btn.clicked.connect(self._open_format_manager)
-        format_quick_select_layout.addWidget(manage_formats_btn)
+        format_row2.addWidget(manage_formats_btn)
+
+        format_row2.addStretch()
+
+        format_quick_select_layout.addLayout(format_row2)
 
         # Style the format buttons
         format_button_style = """
@@ -845,16 +862,19 @@ class MainWindow(QMainWindow):
         # Connect text changes to word count update
         self.text_output.textChanged.connect(self.update_word_count)
 
-        # Bottom buttons
+        # Bottom buttons with improved spacing
         bottom = QHBoxLayout()
+        bottom.setSpacing(12)  # Increased spacing between buttons
 
         self.clear_btn = QPushButton("Clear")
         self.clear_btn.setMinimumHeight(38)
+        self.clear_btn.setMinimumWidth(100)
         self.clear_btn.clicked.connect(self.clear_transcription)
         bottom.addWidget(self.clear_btn)
 
         self.rewrite_btn = QPushButton("✍️ Rewrite")
         self.rewrite_btn.setMinimumHeight(38)
+        self.rewrite_btn.setMinimumWidth(120)
         self.rewrite_btn.setEnabled(False)  # Disabled until we have text
         self.rewrite_btn.setToolTip(
             "Send the transcript back to the AI with custom instructions to rewrite it"
@@ -881,6 +901,7 @@ class MainWindow(QMainWindow):
 
         self.download_btn = QPushButton("⬇ Download")
         self.download_btn.setMinimumHeight(38)
+        self.download_btn.setMinimumWidth(130)
         self.download_btn.setEnabled(False)  # Disabled until we have text
         self.download_btn.setToolTip(
             "Download the transcript with an AI-generated filename"
@@ -907,6 +928,7 @@ class MainWindow(QMainWindow):
 
         self.save_btn = QPushButton("Save As...")
         self.save_btn.setMinimumHeight(38)
+        self.save_btn.setMinimumWidth(110)
         self.save_btn.clicked.connect(self.save_to_file)
         bottom.addWidget(self.save_btn)
 
@@ -914,6 +936,7 @@ class MainWindow(QMainWindow):
 
         self.copy_btn = QPushButton("Copy")
         self.copy_btn.setMinimumHeight(38)
+        self.copy_btn.setMinimumWidth(100)
         self.copy_btn.clicked.connect(self.copy_to_clipboard)
         bottom.addWidget(self.copy_btn)
 
