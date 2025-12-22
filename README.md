@@ -55,13 +55,21 @@ See [docs/](docs/) for detailed documentation.
 
 ## Screenshots
 
-![Record and History](screenshots/1_3_0/composite-1.png)
+![Record Tab](screenshots/by-version/1_5_0/1-record.png)
 
-![Cost and Analysis](screenshots/1_3_0/composite-2.png)
+![Cost Tab](screenshots/by-version/1_5_0/3-cost.png)
 
 ## Cost
 
-Multimodal transcription through models like Gemini 2.5 Flash costs roughly one-tenth of a cent per transcription. Real usage data from Voice Notepad shows 114 transcriptions totaling 11,496 words for $0.14 total.
+Multimodal transcription is extraordinarily cost-effective. Real usage data from Voice Notepad using Gemini 2.5 Flash:
+
+- **848 transcriptions** for **$1.17 total**
+- **84,000 words** transcribed and cleaned
+- About **$0.014 per 1,000 words** (1.4 cents)
+
+This includes the full cleanup prompt that handles formatting, punctuation, filler word removal, and more.
+
+![Cost Tracking Example](screenshots/cost-example.png)
 
 ## Installation
 
@@ -86,43 +94,28 @@ The script creates a virtual environment using `uv` (fast Python package manager
 curl -LsSf https://astral.sh/uv/install.sh | sh
 ```
 
-### Development Workflow
+### Development
 
-For quick iteration during development, use the dev-install task:
-
-```bash
-./tasks/dev-install   # Fast build + install (most reliable for testing)
-```
-
-This builds a .deb package without compression and installs it immediately. This is the most reliable method for testing changes as it installs the app as the user would experience it.
-
-You can also run directly from source:
+Run from source:
 
 ```bash
 ./run.sh           # Run from source without installing
 ```
 
-Or build and install separately:
+Build and install locally:
 
 ```bash
-./build.sh --dev   # Fast build (skips compression)
-./tasks/install    # Install latest .deb from dist/
+./build.sh --dev   # Fast build + install (no compression)
 ```
 
-### Development Tasks
-
-Quick access to common tasks via `tasks/` scripts:
+Create a release:
 
 ```bash
-./tasks/dev        # Run from source
-./tasks/build      # Build packages
-./tasks/install    # Install latest .deb
-./tasks/release    # Create release build
-./tasks/test       # Run tests
-./tasks/clean      # Clean artifacts
+./build.sh --release        # Bump version + build all formats
+./build.sh --release-deb    # Bump version + build .deb only
 ```
 
-See [tasks/README.md](tasks/README.md) for detailed usage.
+Run `./build.sh` with no arguments to see all available commands.
 
 ## Configuration
 

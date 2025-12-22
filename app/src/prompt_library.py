@@ -259,22 +259,40 @@ def build_prompt_from_templates(
 
 
 class PromptConfigCategory(str, Enum):
-    """User-facing categories for prompt configurations."""
-    GENERAL = "general"
-    WORK = "work"
+    """User-facing categories for prompt configurations.
+
+    Categories are organized to group related prompts in the favorites bar:
+    - FOUNDATIONAL: Core transcription modes (General, Verbatim)
+    - STYLISTIC: Writing styles and formats (Email, Meeting Notes, etc.)
+    - PROMPTS: AI prompt formats (AI Prompt, Dev Prompt, System Prompt)
+    - TODO_LISTS: List formats (To-Do, Shopping List)
+    - BLOG: Blog/content creation formats
+    - DOCUMENTATION: Technical and reference documentation
+    - CREATIVE: Creative writing and social media
+    - WORK: Business/professional formats
+    - CUSTOM: User-created prompts
+    """
+    FOUNDATIONAL = "foundational"
+    STYLISTIC = "stylistic"
+    PROMPTS = "prompts"
+    TODO_LISTS = "todo_lists"
+    BLOG = "blog"
     DOCUMENTATION = "documentation"
     CREATIVE = "creative"
-    LISTS = "lists"
+    WORK = "work"
     CUSTOM = "custom"
 
 
 # Display names for user-facing categories
 PROMPT_CONFIG_CATEGORY_NAMES = {
-    PromptConfigCategory.GENERAL: "General",
-    PromptConfigCategory.WORK: "Work",
+    PromptConfigCategory.FOUNDATIONAL: "Foundational",
+    PromptConfigCategory.STYLISTIC: "Stylistic",
+    PromptConfigCategory.PROMPTS: "Prompts",
+    PromptConfigCategory.TODO_LISTS: "To-Do Lists",
+    PromptConfigCategory.BLOG: "Blog",
     PromptConfigCategory.DOCUMENTATION: "Documentation",
     PromptConfigCategory.CREATIVE: "Creative",
-    PromptConfigCategory.LISTS: "Lists",
+    PromptConfigCategory.WORK: "Work",
     PromptConfigCategory.CUSTOM: "Custom",
 }
 
@@ -397,11 +415,13 @@ class PromptConfig:
 # =============================================================================
 
 DEFAULT_PROMPT_CONFIGS: List[PromptConfig] = [
-    # General
+    # ==========================================================================
+    # FOUNDATIONAL - Core transcription modes (Row 1 in favorites bar)
+    # ==========================================================================
     PromptConfig(
         id="general",
         name="General",
-        category=PromptConfigCategory.GENERAL,
+        category=PromptConfigCategory.FOUNDATIONAL,
         description="Standard cleanup with no specific formatting",
         instruction="",
         adherence="",
@@ -411,7 +431,7 @@ DEFAULT_PROMPT_CONFIGS: List[PromptConfig] = [
     PromptConfig(
         id="verbatim",
         name="Verbatim",
-        category=PromptConfigCategory.GENERAL,
+        category=PromptConfigCategory.FOUNDATIONAL,
         description="Minimal transformation - closest to raw transcription",
         instruction="Preserve the original wording and structure as much as possible while applying only essential cleanup.",
         adherence="Keep the transcription very close to the original speech. Only remove obvious filler words, add basic punctuation, and create paragraph breaks. Do not rephrase, restructure, or add formatting beyond the absolute minimum needed for readability.",
@@ -419,86 +439,140 @@ DEFAULT_PROMPT_CONFIGS: List[PromptConfig] = [
         favorite_order=1,
     ),
 
-    # Work
+    # ==========================================================================
+    # STYLISTIC - Writing styles and formats (Row 2 in favorites bar)
+    # ==========================================================================
     PromptConfig(
         id="email",
         name="Email",
-        category=PromptConfigCategory.WORK,
+        category=PromptConfigCategory.STYLISTIC,
         description="Professional email format with greeting and sign-off",
         instruction="Format the output as an email with an appropriate greeting and sign-off.",
         adherence="Follow standard email formatting conventions. Include a clear subject line suggestion if the content is substantial. Use proper email etiquette.",
         is_favorite=True,
-        favorite_order=2,
+        favorite_order=10,
     ),
     PromptConfig(
         id="meeting_notes",
         name="Meeting Notes",
-        category=PromptConfigCategory.WORK,
+        category=PromptConfigCategory.STYLISTIC,
         description="Structured meeting notes with action items",
         instruction="Format as meeting notes with clear sections, bullet points for key points, and a separate 'Action Items' section at the end.",
         adherence="Include: meeting date/time if mentioned, attendees if mentioned, discussion points as bullets, decisions made, and action items with assignees if specified.",
         is_favorite=True,
-        favorite_order=6,
+        favorite_order=11,
     ),
     PromptConfig(
-        id="bug_report",
-        name="Bug Report",
-        category=PromptConfigCategory.WORK,
-        description="Structured bug report format",
-        instruction="Format as a bug report with sections for Description, Steps to Reproduce, Expected Behavior, Actual Behavior, and Environment (if mentioned).",
-        adherence="Use clear technical language. Ensure steps are numbered and specific. Include any error messages or codes mentioned.",
-    ),
-    PromptConfig(
-        id="status_update",
-        name="Status Update",
-        category=PromptConfigCategory.WORK,
-        description="Brief project status update",
-        instruction="Format as a concise status update with what was completed, what's in progress, and any blockers.",
-        adherence="Keep it brief and scannable. Use bullet points. Focus on facts rather than details.",
+        id="bullet_points",
+        name="Bullet Points",
+        category=PromptConfigCategory.STYLISTIC,
+        description="Simple bullet point list",
+        instruction="Format as concise bullet points. One idea per bullet.",
+        adherence="Each bullet must be self-contained and parallel in structure. Use consistent formatting throughout.",
+        is_favorite=True,
+        favorite_order=12,
     ),
 
-    # AI Prompts
+    # ==========================================================================
+    # PROMPTS - AI prompt formats (Row 3 in favorites bar)
+    # ==========================================================================
     PromptConfig(
         id="ai_prompt",
         name="AI Prompt",
-        category=PromptConfigCategory.WORK,
+        category=PromptConfigCategory.PROMPTS,
         description="General AI assistant instructions",
         instruction="Format the output as clear, well-organized instructions for an AI assistant. Use imperative voice, organize tasks logically, and ensure instructions are unambiguous and actionable.",
         adherence="Strictly follow AI prompt engineering best practices: be specific, use clear command language, break complex tasks into numbered steps, and include context where needed.",
         is_favorite=True,
-        favorite_order=3,
+        favorite_order=20,
     ),
     PromptConfig(
         id="dev_prompt",
         name="Dev Prompt",
-        category=PromptConfigCategory.WORK,
+        category=PromptConfigCategory.PROMPTS,
         description="Software development instructions for AI",
         instruction="Format the output as a development prompt for a software development AI assistant. Include technical requirements, implementation details, and expected outcomes. Use imperative voice and be explicit about technical constraints.",
         adherence="Follow software development prompt conventions: specify programming languages, frameworks, file paths if mentioned, testing requirements, and code quality expectations.",
         is_favorite=True,
-        favorite_order=4,
+        favorite_order=21,
     ),
     PromptConfig(
         id="system_prompt",
         name="System Prompt",
-        category=PromptConfigCategory.WORK,
+        category=PromptConfigCategory.PROMPTS,
         description="AI system prompt / persona definition",
         instruction="Format the output as a system prompt that defines an AI assistant's persona, capabilities, and behavioral guidelines.",
         adherence="Use clear, directive language. Define the assistant's role, tone, and any constraints. Structure as a complete system prompt ready for use.",
         is_favorite=True,
-        favorite_order=5,
+        favorite_order=22,
     ),
 
-    # Documentation
+    # ==========================================================================
+    # TODO_LISTS - List formats (Row 4 in favorites bar)
+    # ==========================================================================
+    PromptConfig(
+        id="todo",
+        name="To-Do",
+        category=PromptConfigCategory.TODO_LISTS,
+        description="Checkbox to-do list format",
+        instruction="Format as a to-do list with checkbox items (- [ ] task). Use action verbs and be concise.",
+        adherence="Each item must start with an action verb. Keep items specific and actionable. Group related items under headers if there are distinct categories.",
+        is_favorite=True,
+        favorite_order=30,
+    ),
+    PromptConfig(
+        id="shopping_list",
+        name="Shopping List",
+        category=PromptConfigCategory.TODO_LISTS,
+        description="Categorized shopping list",
+        instruction="Format as a shopping list. Group items by category (produce, dairy, meat, pantry, household, etc.) if there are multiple items.",
+        adherence="Always organize by store section categories. Use consistent item naming (e.g., quantities if mentioned).",
+        is_favorite=True,
+        favorite_order=31,
+    ),
+
+    # ==========================================================================
+    # BLOG - Blog/content creation formats (Row 5 in favorites bar)
+    # ==========================================================================
+    PromptConfig(
+        id="blog",
+        name="Blog Post",
+        category=PromptConfigCategory.BLOG,
+        description="Blog post format with sections and flow",
+        instruction="Format as a blog post with a compelling title, engaging introduction, well-organized body sections, and a conclusion.",
+        adherence="Structure for readability. Use subheadings to break up content. Maintain a conversational yet informative tone. Note where examples or images might enhance the content.",
+        is_favorite=True,
+        favorite_order=40,
+    ),
+    PromptConfig(
+        id="blog_outline",
+        name="Blog Outline",
+        category=PromptConfigCategory.BLOG,
+        description="Blog post outline with sections",
+        instruction="Format as a blog post outline with a compelling title, introduction hook, main sections, and conclusion.",
+        adherence="Structure for readability. Include suggested subheadings. Note where examples or images might enhance the content.",
+    ),
+
+    # ==========================================================================
+    # DOCUMENTATION - Technical and reference documentation
+    # ==========================================================================
+    PromptConfig(
+        id="documentation",
+        name="Documentation",
+        category=PromptConfigCategory.DOCUMENTATION,
+        description="Clear, structured documentation format",
+        instruction="Format as structured documentation with clear headings, organized sections, and logical flow.",
+        adherence="Use markdown formatting. Structure content hierarchically. Be clear and precise. Include examples where helpful.",
+        is_favorite=True,
+        favorite_order=50,
+    ),
     PromptConfig(
         id="tech_docs",
         name="Tech Docs",
         category=PromptConfigCategory.DOCUMENTATION,
-        description="Technical documentation format",
+        description="Technical documentation with code examples",
         instruction="Format as technical documentation with clear headings, code examples in fenced blocks, and structured explanations.",
         adherence="Use markdown formatting. Include code blocks with language tags. Be precise with technical terminology.",
-        is_favorite=True,
-        favorite_order=7,
     ),
     PromptConfig(
         id="readme",
@@ -517,35 +591,29 @@ DEFAULT_PROMPT_CONFIGS: List[PromptConfig] = [
         adherence="Include HTTP methods, URL patterns, request bodies, response examples, and error codes. Use code blocks for JSON examples.",
     ),
 
-    # Lists
+    # ==========================================================================
+    # WORK - Business/professional formats
+    # ==========================================================================
     PromptConfig(
-        id="todo",
-        name="To-Do List",
-        category=PromptConfigCategory.LISTS,
-        description="Checkbox to-do list format",
-        instruction="Format as a to-do list with checkbox items (- [ ] task). Use action verbs and be concise.",
-        adherence="Each item must start with an action verb. Keep items specific and actionable. Group related items under headers if there are distinct categories.",
-        is_favorite=True,
-        favorite_order=8,
+        id="bug_report",
+        name="Bug Report",
+        category=PromptConfigCategory.WORK,
+        description="Structured bug report format",
+        instruction="Format as a bug report with sections for Description, Steps to Reproduce, Expected Behavior, Actual Behavior, and Environment (if mentioned).",
+        adherence="Use clear technical language. Ensure steps are numbered and specific. Include any error messages or codes mentioned.",
     ),
     PromptConfig(
-        id="grocery",
-        name="Grocery List",
-        category=PromptConfigCategory.LISTS,
-        description="Categorized grocery shopping list",
-        instruction="Format as a grocery list. Group items by category (produce, dairy, meat, pantry, etc.) if there are multiple items.",
-        adherence="Always organize by store section categories. Use consistent item naming (e.g., quantities if mentioned).",
-    ),
-    PromptConfig(
-        id="bullet_points",
-        name="Bullet Points",
-        category=PromptConfigCategory.LISTS,
-        description="Simple bullet point list",
-        instruction="Format as concise bullet points. One idea per bullet.",
-        adherence="Each bullet must be self-contained and parallel in structure. Use consistent formatting throughout.",
+        id="status_update",
+        name="Status Update",
+        category=PromptConfigCategory.WORK,
+        description="Brief project status update",
+        instruction="Format as a concise status update with what was completed, what's in progress, and any blockers.",
+        adherence="Keep it brief and scannable. Use bullet points. Focus on facts rather than details.",
     ),
 
-    # Creative
+    # ==========================================================================
+    # CREATIVE - Creative writing and social media
+    # ==========================================================================
     PromptConfig(
         id="social_post",
         name="Social Post",
@@ -553,16 +621,6 @@ DEFAULT_PROMPT_CONFIGS: List[PromptConfig] = [
         description="Social media post format",
         instruction="Format as a social media post. Keep it engaging, concise, and appropriate for platforms like Twitter/X or LinkedIn.",
         adherence="Optimize for engagement. Use appropriate hashtags if relevant. Keep within typical character limits.",
-        is_favorite=True,
-        favorite_order=9,
-    ),
-    PromptConfig(
-        id="blog_outline",
-        name="Blog Outline",
-        category=PromptConfigCategory.CREATIVE,
-        description="Blog post outline with sections",
-        instruction="Format as a blog post outline with a compelling title, introduction hook, main sections, and conclusion.",
-        adherence="Structure for readability. Include suggested subheadings. Note where examples or images might enhance the content.",
     ),
     PromptConfig(
         id="story_notes",

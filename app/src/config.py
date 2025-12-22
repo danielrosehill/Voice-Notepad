@@ -417,67 +417,146 @@ OPTIONAL_PROMPT_COMPONENTS = [
 
 # Format preset templates with adherence instructions
 # Each format: (format_instruction, adherence_instruction, category)
-# Categories: "general", "work", "documentation", "creative", "lists"
+# Categories align with PromptConfigCategory in prompt_library.py:
+#   foundational, stylistic, prompts, todo_lists, blog, documentation, work, creative, experimental
 FORMAT_TEMPLATES = {
+    # ==========================================================================
+    # FOUNDATIONAL - Core transcription modes
+    # ==========================================================================
     "general": {
         "instruction": "",
         "adherence": "",
-        "category": "general",
+        "category": "foundational",
         "description": "No specific formatting - general cleanup only",
     },
     "verbatim": {
         "instruction": "Preserve the original wording and structure as much as possible while applying only essential cleanup.",
         "adherence": "Keep the transcription very close to the original speech. Only remove obvious filler words, add basic punctuation, and create paragraph breaks. Do not rephrase, restructure, or add formatting beyond the absolute minimum needed for readability.",
-        "category": "general",
+        "category": "foundational",
         "description": "Minimal transformation - closest to verbatim transcription",
     },
+
+    # ==========================================================================
+    # STYLISTIC - Writing styles and formats
+    # ==========================================================================
     "email": {
         "instruction": "Format the output as an email with an appropriate greeting and sign-off.",
         "adherence": "Follow standard email formatting conventions. Include a clear subject line suggestion if the content is substantial. Use proper email etiquette.",
-        "category": "work",
+        "category": "stylistic",
         "description": "Professional email format with greeting and sign-off",
-    },
-    "ai_prompt": {
-        "instruction": "Format the output as clear, well-organized instructions for an AI assistant. Use imperative voice, organize tasks logically, and ensure instructions are unambiguous and actionable.",
-        "adherence": "Strictly follow AI prompt engineering best practices: be specific, use clear command language, break complex tasks into numbered steps, and include context where needed.",
-        "category": "work",
-        "description": "General AI assistant instructions",
-    },
-    "dev_prompt": {
-        "instruction": "Format the output as a development prompt for a software development AI assistant. Include technical requirements, implementation details, and expected outcomes. Use imperative voice and be explicit about technical constraints.",
-        "adherence": "Follow software development prompt conventions: specify programming languages, frameworks, file paths if mentioned, testing requirements, and code quality expectations.",
-        "category": "work",
-        "description": "Software development instructions for AI",
-    },
-    "todo": {
-        "instruction": "Format as a to-do list with checkbox items (- [ ] task). Use action verbs and be concise.",
-        "adherence": "Each item must start with an action verb. Keep items specific and actionable. Group related items under headers if there are distinct categories.",
-        "category": "lists",
-        "description": "Checkbox to-do list format",
-    },
-    "grocery": {
-        "instruction": "Format as a grocery list. Group items by category (produce, dairy, meat, pantry, etc.) if there are multiple items.",
-        "adherence": "Always organize by store section categories. Use consistent item naming (e.g., quantities if mentioned).",
-        "category": "lists",
-        "description": "Categorized grocery shopping list",
     },
     "meeting_notes": {
         "instruction": "Format as meeting notes with clear sections, bullet points for key points, and a separate 'Action Items' section at the end.",
         "adherence": "Include: meeting date/time if mentioned, attendees if mentioned, discussion points as bullets, decisions made, and action items with assignees if specified.",
-        "category": "work",
+        "category": "stylistic",
         "description": "Structured meeting notes with action items",
     },
     "bullet_points": {
         "instruction": "Format as concise bullet points. One idea per bullet.",
         "adherence": "Each bullet must be self-contained and parallel in structure. Use consistent formatting throughout.",
-        "category": "lists",
+        "category": "stylistic",
         "description": "Simple bullet point list",
     },
-    "readme": {
-        "instruction": "Format as a README.md file for a software project. Include clear sections for project description, installation, usage, and other relevant information.",
-        "adherence": "Follow GitHub README conventions: use markdown headers (# ## ###), include code blocks with language tags, format installation commands as code blocks, and structure information logically.",
+    "internal_memo": {
+        "instruction": "Format as an internal company memo with: TO, FROM, DATE, SUBJECT, and body with clear sections and action items if applicable.",
+        "adherence": "Use professional but direct tone. Keep concise. Highlight key decisions or action items. Use proper memo formatting conventions.",
+        "category": "stylistic",
+        "description": "Internal company memorandum",
+    },
+    "press_release": {
+        "instruction": "Format as a press release with: compelling headline, dateline, lead paragraph (who/what/when/where/why), body paragraphs, boilerplate, and media contact.",
+        "adherence": "Follow AP style. Front-load most newsworthy information. Use quotations if mentioned. Maintain objective tone. Include standard press release structure.",
+        "category": "stylistic",
+        "description": "Corporate press release",
+    },
+    "newsletter": {
+        "instruction": "Format as an email newsletter with: engaging subject line, greeting, main content sections with headers, and clear call-to-action.",
+        "adherence": "Use scannable sections with headers. Include brief intro paragraph. Maintain conversational but professional tone. End with clear CTA and sign-off.",
+        "category": "stylistic",
+        "description": "Email newsletter content",
+    },
+
+    # ==========================================================================
+    # PROMPTS - AI prompt formats
+    # ==========================================================================
+    "ai_prompt": {
+        "instruction": "Format the output as clear, well-organized instructions for an AI assistant. Use imperative voice, organize tasks logically, and ensure instructions are unambiguous and actionable.",
+        "adherence": "Strictly follow AI prompt engineering best practices: be specific, use clear command language, break complex tasks into numbered steps, and include context where needed.",
+        "category": "prompts",
+        "description": "General AI assistant instructions",
+    },
+    "dev_prompt": {
+        "instruction": "Format the output as a development prompt for a software development AI assistant. Include technical requirements, implementation details, and expected outcomes. Use imperative voice and be explicit about technical constraints.",
+        "adherence": "Follow software development prompt conventions: specify programming languages, frameworks, file paths if mentioned, testing requirements, and code quality expectations.",
+        "category": "prompts",
+        "description": "Software development instructions for AI",
+    },
+    "system_prompt": {
+        "instruction": "Format as a system prompt for an AI assistant. Write in third-person, defining the assistant's role, capabilities, constraints, and behavioral guidelines. Use declarative statements about what the assistant 'is' or 'does'.",
+        "adherence": "Use third-person perspective (e.g., 'You are...', 'The assistant should...'). Define role clearly. Specify constraints and boundaries. Include behavioral guidelines. Be comprehensive but concise. Avoid user-facing language.",
+        "category": "prompts",
+        "description": "AI system prompt (third-person, defining behavior)",
+    },
+    "image_generation_prompt": {
+        "instruction": "Format as a detailed image generation prompt suitable for AI image generators (Stable Diffusion, DALL-E, Midjourney, etc.). Include: subject description, style/aesthetic, composition, lighting, camera angle, colors/mood, quality markers, and negative prompt suggestions if applicable.",
+        "adherence": "Use descriptive, comma-separated keywords and phrases. Be specific about visual details. Include style modifiers (photorealistic, oil painting, anime, etc.). Specify technical aspects (4K, detailed, sharp focus). Structure as: main subject, setting, style, technical quality. Add [Negative prompt: ...] section for things to avoid if mentioned.",
+        "category": "prompts",
+        "description": "Image generation prompt for AI art tools",
+    },
+
+    # ==========================================================================
+    # TODO_LISTS - List formats
+    # ==========================================================================
+    "todo": {
+        "instruction": "Format as a to-do list with checkbox items (- [ ] task). Use action verbs and be concise.",
+        "adherence": "Each item must start with an action verb. Keep items specific and actionable. Group related items under headers if there are distinct categories.",
+        "category": "todo_lists",
+        "description": "Checkbox to-do list format",
+    },
+    "shopping_list": {
+        "instruction": "Format as a shopping list. Group items by category (produce, dairy, meat, pantry, household, etc.) if there are multiple items.",
+        "adherence": "Always organize by store section categories. Use consistent item naming (e.g., quantities if mentioned).",
+        "category": "todo_lists",
+        "description": "Categorized shopping list",
+    },
+    # Keep grocery as an alias for backwards compatibility
+    "grocery": {
+        "instruction": "Format as a shopping list. Group items by category (produce, dairy, meat, pantry, household, etc.) if there are multiple items.",
+        "adherence": "Always organize by store section categories. Use consistent item naming (e.g., quantities if mentioned).",
+        "category": "todo_lists",
+        "description": "Categorized grocery shopping list",
+    },
+
+    # ==========================================================================
+    # BLOG - Blog/content creation formats
+    # ==========================================================================
+    "blog": {
+        "instruction": "Format as a blog post with a compelling title, engaging introduction, well-organized body sections, and a conclusion.",
+        "adherence": "Structure for readability. Use subheadings to break up content. Maintain a conversational yet informative tone. Note where examples or images might enhance the content.",
+        "category": "blog",
+        "description": "Blog post format with sections and flow",
+    },
+    "blog_outline": {
+        "instruction": "Format as a blog post outline with main sections, subsections, and key points to cover under each. Include suggested introduction and conclusion hooks.",
+        "adherence": "Structure as a hierarchical outline using markdown headers. Include [INTRO], [BODY], and [CONCLUSION] section markers. Each point should be brief but clear about the content to be written.",
+        "category": "blog",
+        "description": "Blog post structure and outline",
+    },
+    "blog_notes": {
+        "instruction": "Format as raw notes and ideas for a blog post. Capture key points, quotes, statistics, links, or thoughts mentioned - doesn't need to be polished prose.",
+        "adherence": "Preserve all ideas mentioned even if scattered. Use bullet points for discrete thoughts. Mark any action items (e.g., 'RESEARCH: [topic]', 'FIND: [statistic]') if mentioned.",
+        "category": "blog",
+        "description": "Unstructured blog research notes",
+    },
+
+    # ==========================================================================
+    # DOCUMENTATION - Technical and reference documentation
+    # ==========================================================================
+    "documentation": {
+        "instruction": "Format as structured documentation with clear headings, organized sections, and logical flow.",
+        "adherence": "Use markdown formatting. Structure content hierarchically. Be clear and precise. Include examples where helpful.",
         "category": "documentation",
-        "description": "GitHub-style README documentation",
+        "description": "Clear, structured documentation format",
     },
     "tech_docs": {
         "instruction": "Format as technical documentation with clear sections, code examples where appropriate, and structured explanations of technical concepts.",
@@ -485,54 +564,17 @@ FORMAT_TEMPLATES = {
         "category": "documentation",
         "description": "Technical documentation and guides",
     },
+    "readme": {
+        "instruction": "Format as a README.md file for a software project. Include clear sections for project description, installation, usage, and other relevant information.",
+        "adherence": "Follow GitHub README conventions: use markdown headers (# ## ###), include code blocks with language tags, format installation commands as code blocks, and structure information logically.",
+        "category": "documentation",
+        "description": "GitHub-style README documentation",
+    },
     "reference_doc": {
         "instruction": "Format as a reference document with clear categorization, examples, and quick-lookup structure. Prioritize clarity and accessibility.",
         "adherence": "Organize information for quick reference. Use consistent formatting for similar items. Include examples where helpful. Use tables or structured lists for parameter references or option lists.",
         "category": "documentation",
         "description": "Reference material and quick-lookup docs",
-    },
-    "blog_outline": {
-        "instruction": "Format as a blog post outline with main sections, subsections, and key points to cover under each. Include suggested introduction and conclusion hooks.",
-        "adherence": "Structure as a hierarchical outline using markdown headers. Include [INTRO], [BODY], and [CONCLUSION] section markers. Each point should be brief but clear about the content to be written.",
-        "category": "creative",
-        "description": "Blog post structure and outline",
-    },
-    "blog_notes": {
-        "instruction": "Format as raw notes and ideas for a blog post. Capture key points, quotes, statistics, links, or thoughts mentioned - doesn't need to be polished prose.",
-        "adherence": "Preserve all ideas mentioned even if scattered. Use bullet points for discrete thoughts. Mark any action items (e.g., 'RESEARCH: [topic]', 'FIND: [statistic]') if mentioned.",
-        "category": "creative",
-        "description": "Unstructured blog research notes",
-    },
-    # NEW FORMATS - Business & Technical
-    "bug_report": {
-        "instruction": "Format as a software bug report with clear sections: Summary, Steps to Reproduce, Expected Behavior, Actual Behavior, Environment Details, and Additional Context.",
-        "adherence": "Use technical precision. Include all mentioned error messages verbatim. Structure reproduction steps as numbered list. Categorize severity if mentioned.",
-        "category": "work",
-        "description": "Software bug report with technical details",
-    },
-    "internal_memo": {
-        "instruction": "Format as an internal company memo with: TO, FROM, DATE, SUBJECT, and body with clear sections and action items if applicable.",
-        "adherence": "Use professional but direct tone. Keep concise. Highlight key decisions or action items. Use proper memo formatting conventions.",
-        "category": "work",
-        "description": "Internal company memorandum",
-    },
-    "sop": {
-        "instruction": "Format as a Standard Operating Procedure (SOP) with: Purpose, Scope, Procedure (numbered steps), Safety/Compliance notes if relevant, and References if mentioned.",
-        "adherence": "Use imperative voice for procedure steps. Each step must be clear and actionable. Include warnings or cautions if safety is mentioned. Maintain consistent step numbering.",
-        "category": "documentation",
-        "description": "Standard Operating Procedure document",
-    },
-    "system_prompt": {
-        "instruction": "Format as a system prompt for an AI assistant. Write in third-person, defining the assistant's role, capabilities, constraints, and behavioral guidelines. Use declarative statements about what the assistant 'is' or 'does'.",
-        "adherence": "Use third-person perspective (e.g., 'You are...', 'The assistant should...'). Define role clearly. Specify constraints and boundaries. Include behavioral guidelines. Be comprehensive but concise. Avoid user-facing language.",
-        "category": "work",
-        "description": "AI system prompt (third-person, defining behavior)",
-    },
-    "image_generation_prompt": {
-        "instruction": "Format as a detailed image generation prompt suitable for AI image generators (Stable Diffusion, DALL-E, Midjourney, etc.). Include: subject description, style/aesthetic, composition, lighting, camera angle, colors/mood, quality markers, and negative prompt suggestions if applicable.",
-        "adherence": "Use descriptive, comma-separated keywords and phrases. Be specific about visual details. Include style modifiers (photorealistic, oil painting, anime, etc.). Specify technical aspects (4K, detailed, sharp focus). Structure as: main subject, setting, style, technical quality. Add [Negative prompt: ...] section for things to avoid if mentioned.",
-        "category": "work",
-        "description": "Image generation prompt for AI art tools",
     },
     "api_doc": {
         "instruction": "Format as API documentation with endpoint details, parameters, request/response examples, and usage notes.",
@@ -540,11 +582,27 @@ FORMAT_TEMPLATES = {
         "category": "documentation",
         "description": "API endpoint documentation",
     },
+    "sop": {
+        "instruction": "Format as a Standard Operating Procedure (SOP) with: Purpose, Scope, Procedure (numbered steps), Safety/Compliance notes if relevant, and References if mentioned.",
+        "adherence": "Use imperative voice for procedure steps. Each step must be clear and actionable. Include warnings or cautions if safety is mentioned. Maintain consistent step numbering.",
+        "category": "documentation",
+        "description": "Standard Operating Procedure document",
+    },
     "changelog": {
         "instruction": "Format as a software changelog with version numbers, release dates, and categorized changes (Added, Changed, Fixed, Removed, Deprecated).",
         "adherence": "Follow Keep a Changelog format. Use markdown headers for versions. Group changes by category. Use bullet points. Include dates in YYYY-MM-DD format.",
         "category": "documentation",
         "description": "Software release changelog",
+    },
+
+    # ==========================================================================
+    # WORK - Business/professional formats
+    # ==========================================================================
+    "bug_report": {
+        "instruction": "Format as a software bug report with clear sections: Summary, Steps to Reproduce, Expected Behavior, Actual Behavior, Environment Details, and Additional Context.",
+        "adherence": "Use technical precision. Include all mentioned error messages verbatim. Structure reproduction steps as numbered list. Categorize severity if mentioned.",
+        "category": "work",
+        "description": "Software bug report with technical details",
     },
     "project_plan": {
         "instruction": "Format as a project plan with: Overview, Goals/Objectives, Timeline/Milestones, Resources, Deliverables, and Risks if mentioned.",
@@ -552,26 +610,26 @@ FORMAT_TEMPLATES = {
         "category": "work",
         "description": "Project planning document",
     },
-    # Content Creation
+
+    # ==========================================================================
+    # CREATIVE - Creative writing and social media
+    # ==========================================================================
     "social_post": {
         "instruction": "Format as a social media post optimized for engagement. Keep concise, use line breaks for readability, include hashtags if mentioned, and maintain conversational tone.",
         "adherence": "Respect platform character limits if specified. Use emoji strategically if mentioned. Structure for scanability. Include call-to-action if present.",
         "category": "creative",
         "description": "Social media post (Twitter, LinkedIn, etc.)",
     },
-    "press_release": {
-        "instruction": "Format as a press release with: compelling headline, dateline, lead paragraph (who/what/when/where/why), body paragraphs, boilerplate, and media contact.",
-        "adherence": "Follow AP style. Front-load most newsworthy information. Use quotations if mentioned. Maintain objective tone. Include standard press release structure.",
-        "category": "work",
-        "description": "Corporate press release",
-    },
-    "newsletter": {
-        "instruction": "Format as an email newsletter with: engaging subject line, greeting, main content sections with headers, and clear call-to-action.",
-        "adherence": "Use scannable sections with headers. Include brief intro paragraph. Maintain conversational but professional tone. End with clear CTA and sign-off.",
+    "story_notes": {
+        "instruction": "Format as creative writing notes. Capture character ideas, plot points, settings, and any narrative elements mentioned.",
+        "adherence": "Preserve creative details and mood. Organize by narrative element (characters, plot, setting, themes).",
         "category": "creative",
-        "description": "Email newsletter content",
+        "description": "Creative writing notes and ideas",
     },
-    # Fun/Experimental
+
+    # ==========================================================================
+    # EXPERIMENTAL - Fun/experimental formats
+    # ==========================================================================
     "shakespearean": {
         "instruction": "Rewrite the transcription in Shakespearean English style, using Early Modern English vocabulary, thou/thee pronouns, and poetic phrasing while preserving the core meaning.",
         "adherence": "Use Elizabethan vocabulary and syntax. Apply thee/thou/thy appropriately. Add poetic flourishes. Maintain iambic rhythm where natural. Preserve original meaning despite stylistic transformation.",
@@ -603,28 +661,32 @@ FORMAT_DISPLAY_NAMES = {
     "general": "General",
     "verbatim": "Verbatim",
     "email": "Email",
+    "meeting_notes": "Meeting Notes",
+    "bullet_points": "Bullet Points",
+    "internal_memo": "Internal Memo",
+    "press_release": "Press Release",
+    "newsletter": "Newsletter",
     "ai_prompt": "AI Prompt",
     "dev_prompt": "Development Prompt",
     "system_prompt": "System Prompt",
     "image_generation_prompt": "Image Generation Prompt",
-    "todo": "To-Do List",
-    "grocery": "Grocery List",
-    "meeting_notes": "Meeting Notes",
-    "bullet_points": "Bullet Points",
-    "readme": "README",
+    "todo": "To-Do",
+    "shopping_list": "Shopping List",
+    "grocery": "Grocery List",  # Legacy alias
+    "blog": "Blog Post",
+    "blog_outline": "Blog Outline",
+    "blog_notes": "Blog Notes",
+    "documentation": "Documentation",
     "tech_docs": "Technical Documentation",
+    "readme": "README",
     "reference_doc": "Reference Doc",
     "api_doc": "API Documentation",
     "sop": "SOP (Standard Operating Procedure)",
     "changelog": "Changelog",
-    "blog_outline": "Blog Outline",
-    "blog_notes": "Blog Notes",
     "bug_report": "Bug Report",
-    "internal_memo": "Internal Memo",
     "project_plan": "Project Plan",
     "social_post": "Social Media Post",
-    "press_release": "Press Release",
-    "newsletter": "Newsletter",
+    "story_notes": "Story Notes",
     "shakespearean": "Shakespearean Style",
     "medieval": "Medieval Style",
     "pirate_speak": "Pirate Speak",
@@ -632,12 +694,16 @@ FORMAT_DISPLAY_NAMES = {
 }
 
 # Format categories for organization in Formats tab
+# Aligns with PromptConfigCategory in prompt_library.py
 FORMAT_CATEGORIES = {
-    "general": "General",
-    "work": "Work & Productivity",
+    "foundational": "Foundational",
+    "stylistic": "Stylistic",
+    "prompts": "Prompts",
+    "todo_lists": "To-Do Lists",
+    "blog": "Blog",
     "documentation": "Documentation",
-    "creative": "Creative & Content",
-    "lists": "Lists & Planning",
+    "work": "Work",
+    "creative": "Creative",
     "experimental": "Fun & Experimental",
 }
 
