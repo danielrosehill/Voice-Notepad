@@ -7,11 +7,15 @@
 
 **Download:** [GitHub Releases](https://github.com/danielrosehill/Voice-Notepad/releases) (AppImage, Windows Installer, Debian .deb, Tarball)
 
-This voice notepad app is a consolidation of various prototypes I've been working on this past year.
+## Why This App Is Different!
 
-It uses Gemini multimodal for transcription, supporting both a basic cleanup mode for applying a carefully selected list of basic text remediation instructions, as well as user-defined modes with presets for common formats and personalization support for injecting personalized elements like name and signature into email bodies.
+Over the past year, I've been using AI extensively for speech-to-text tasks, specifically by combining ASR models like Whisper for transcription with LLMs like GPT-4 for rewriting / transcript post-processing.
 
-Audio multimodal provides a compelling and often overlooked alternative to ASR and LLM based voice transcription, in my opinion. I periodically share my actual cost metrics from the app to demonstrate just how cost-effective it is (I'm using Gemini 2.5 via Open Router API).
+This transcription utility has takes a different approach by using an audio multimodal model for single-pass text transcription and cleanup (the default model is Gemini Flash 2.5 although in theory any multimodal model with audio understanding and which can process audio and text tokens simultaneously would be suitable).
+
+ During the first fortnight of using this app I've validated it to be both highly effective and cost-efficient: API costs of just a few dollars for almost 1,000 very useful transcriptions!
+
+Gemini is available in this app through the Google Gemini API as well as OpenRouter. Additionally, there’s support for Voxtral and OpenAI models.
 
 ![alt text](screenshots/manual/4.png)
 
@@ -139,7 +143,8 @@ MISTRAL_API_KEY=your_key
 ## Documentation
 
 - [docs/](docs/) - Full documentation
-- [User Manual (PDF)](docs/manuals/Voice-Notepad-User-Manual-v1.pdf) - Complete guide
+- [User Manual v2 (PDF)](docs/manuals/Voice-Notepad-User-Manual-v2.pdf) - Complete guide (v1.8.0)
+- [User Manual v1 (PDF)](docs/manuals/archive/Voice-Notepad-User-Manual-v1.pdf) - Legacy guide (v1.3.0)
 - [changelog.md](changelog.md) - Version history
 
 ## Related

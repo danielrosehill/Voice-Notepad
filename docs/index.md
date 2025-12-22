@@ -23,4 +23,9 @@ Voice Notepad is a desktop application that uses multimodal AI models for single
 ## Resources
 
 - [Screenshots](screenshots.md) - Application screenshots
-- [User Manual (PDF)](manuals/Voice-Notepad-User-Manual-v1.pdf) - Complete guide
+- [User Manual v2 (PDF)](manuals/Voice-Notepad-User-Manual-v2.pdf) - Complete guide (v1.8.0)
+- [User Manual v2 (Markdown)](manuals/user-manual-v2.md) - Complete guide (v1.8.0)
+
+## Archive
+
+- [User Manual v1 (PDF)](manuals/archive/Voice-Notepad-User-Manual-v1.pdf) - Legacy guide (v1.3.0)
