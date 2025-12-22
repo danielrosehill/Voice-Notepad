@@ -15,6 +15,9 @@ from PyQt6.QtWidgets import (
     QDateEdit,
     QFileDialog,
     QMessageBox,
+    QTableWidget,
+    QTableWidgetItem,
+    QHeaderView,
 )
 from PyQt6.QtCore import Qt, QDate
 from PyQt6.QtGui import QFont
@@ -154,6 +157,41 @@ class CostWidget(QWidget):
         local_layout.addWidget(self.today_local_label)
 
         layout.addWidget(local_group)
+
+        # Daily Cost Breakdown
+        daily_group = QGroupBox("Daily Cost Breakdown (Last 30 Days)")
+        daily_layout = QVBoxLayout(daily_group)
+
+        # Cost efficiency summary
+        self.efficiency_label = QLabel("Avg cost per transcription: --")
+        self.efficiency_label.setStyleSheet("color: #666; font-size: 12px; font-weight: bold;")
+        daily_layout.addWidget(self.efficiency_label)
+
+        # Daily breakdown table
+        self.daily_table = QTableWidget()
+        self.daily_table.setColumnCount(4)
+        self.daily_table.setHorizontalHeaderLabels(['Date', 'Count', 'Total Cost', 'Avg Cost'])
+        self.daily_table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
+        self.daily_table.setMaximumHeight(300)
+        self.daily_table.setAlternatingRowColors(True)
+        self.daily_table.setStyleSheet("""
+            QTableWidget {
+                gridline-color: #dee2e6;
+                background-color: white;
+            }
+            QTableWidget::item {
+                padding: 4px;
+            }
+            QHeaderView::section {
+                background-color: #f8f9fa;
+                padding: 4px;
+                border: 1px solid #dee2e6;
+                font-weight: bold;
+            }
+        """)
+        daily_layout.addWidget(self.daily_table)
+
+        layout.addWidget(daily_group)
 
         # Export Section
         export_group = QGroupBox("Export History")
@@ -316,6 +354,7 @@ class CostWidget(QWidget):
         db = get_db()
         stats = db.get_recent_stats(days=30)
         today_stats = db.get_recent_stats(days=1)
+        all_time = db.get_cost_all_time()
 
         self.local_stats_label.setText(
             f"Transcriptions: {stats['count']} | "
@@ -326,6 +365,47 @@ class CostWidget(QWidget):
         self.today_local_label.setText(
             f"Today: {today_stats['count']} transcriptions"
         )
+
+        # Update efficiency label
+        if all_time['count'] > 0:
+            avg_cost = all_time['total_cost'] / all_time['count']
+            self.efficiency_label.setText(
+                f"Avg cost per transcription: ${avg_cost:.4f} | "
+                f"Total all-time: ${all_time['total_cost']:.4f} ({all_time['count']:,} transcriptions)"
+            )
+        else:
+            self.efficiency_label.setText("No transcriptions yet")
+
+        # Update daily breakdown table
+        self._refresh_daily_breakdown()
+
+    def _refresh_daily_breakdown(self):
+        """Refresh the daily cost breakdown table."""
+        db = get_db()
+        daily_data = db.get_daily_cost_breakdown(days=30)
+
+        self.daily_table.setRowCount(len(daily_data))
+
+        for row, day in enumerate(daily_data):
+            # Date
+            date_item = QTableWidgetItem(day['date'])
+            date_item.setFlags(date_item.flags() & ~Qt.ItemFlag.ItemIsEditable)
+            self.daily_table.setItem(row, 0, date_item)
+
+            # Count
+            count_item = QTableWidgetItem(str(day['count']))
+            count_item.setFlags(count_item.flags() & ~Qt.ItemFlag.ItemIsEditable)
+            self.daily_table.setItem(row, 1, count_item)
+
+            # Total cost
+            cost_item = QTableWidgetItem(f"${day['cost']:.4f}")
+            cost_item.setFlags(cost_item.flags() & ~Qt.ItemFlag.ItemIsEditable)
+            self.daily_table.setItem(row, 2, cost_item)
+
+            # Avg cost
+            avg_item = QTableWidgetItem(f"${day['avg_cost']:.4f}")
+            avg_item.setFlags(avg_item.flags() & ~Qt.ItemFlag.ItemIsEditable)
+            self.daily_table.setItem(row, 3, avg_item)
 
     def _get_save_path(self, default_name: str) -> Path | None:
         """Show file dialog and return selected path."""

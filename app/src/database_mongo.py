@@ -439,6 +439,42 @@ class TranscriptionDB:
         """Get total cost for all transcriptions."""
         return self._get_cost_stats({})
 
+    def get_daily_cost_breakdown(self, days: int = 30) -> List[dict]:
+        """Get cost breakdown by day for the last N days.
+
+        Returns list of dicts with keys: date, count, cost, avg_cost
+        Sorted by date descending (most recent first).
+        """
+        with self._lock:
+            db = self._get_db()
+
+            cutoff = (datetime.now() - timedelta(days=days)).isoformat()
+            results = list(db.transcriptions.find({'timestamp': {'$gte': cutoff}}))
+
+            # Group by date
+            from collections import defaultdict
+            daily = defaultdict(lambda: {'count': 0, 'cost': 0.0})
+
+            for r in results:
+                date_str = r['timestamp'][:10]  # YYYY-MM-DD
+                daily[date_str]['count'] += 1
+                daily[date_str]['cost'] += r.get('estimated_cost', 0)
+
+            # Convert to list and calculate averages
+            output = []
+            for date_str, stats in daily.items():
+                avg = stats['cost'] / stats['count'] if stats['count'] > 0 else 0
+                output.append({
+                    'date': date_str,
+                    'count': stats['count'],
+                    'cost': round(stats['cost'], 6),
+                    'avg_cost': round(avg, 6),
+                })
+
+            # Sort by date descending
+            output.sort(key=lambda x: x['date'], reverse=True)
+            return output
+
     def get_cost_by_provider(self) -> List[dict]:
         """Get cost breakdown by provider."""
         with self._lock:

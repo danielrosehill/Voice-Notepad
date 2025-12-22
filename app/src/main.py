@@ -71,7 +71,7 @@ from .hotkeys import (
 from .cost_tracker import get_tracker
 from .history_widget import HistoryWidget
 from .analytics_widget import AnalyticsWidget
-from .settings_widget import SettingsWidget
+from .settings_widget import SettingsDialog
 from .about_widget import AboutWidget
 from .audio_feedback import get_feedback
 from .file_transcription_widget import FileTranscriptionWidget
@@ -275,7 +275,7 @@ class MainWindow(QMainWindow):
         if os.environ.get("VOICE_NOTEPAD_DEV_MODE") == "1":
             title += " (DEV)"
         self.setWindowTitle(title)
-        self.setMinimumSize(480, 550)
+        self.setMinimumSize(620, 600)
         self.resize(self.config.window_width, self.config.window_height)
 
         self.setup_ui()
@@ -606,6 +606,17 @@ class MainWindow(QMainWindow):
         self.format_button_group.addButton(self.custom_format_btn)
         format_row2.addWidget(self.custom_format_btn)
 
+        format_row2.addStretch()
+
+        format_quick_select_layout.addLayout(format_row2)
+
+        # Third row - Manage Formats button on its own row for better visibility
+        format_row3 = QHBoxLayout()
+        format_row3.setSpacing(8)
+
+        # Add spacing to align with first row (compensate for "Format:" label)
+        format_row3.addSpacing(70)
+
         # Manage Formats button
         manage_formats_btn = QPushButton("⚙️ Manage Formats...")
         manage_formats_btn.setFixedHeight(32)
@@ -625,11 +636,11 @@ class MainWindow(QMainWindow):
             }
         """)
         manage_formats_btn.clicked.connect(self._open_format_manager)
-        format_row2.addWidget(manage_formats_btn)
+        format_row3.addWidget(manage_formats_btn)
 
-        format_row2.addStretch()
+        format_row3.addStretch()
 
-        format_quick_select_layout.addLayout(format_row2)
+        format_quick_select_layout.addLayout(format_row3)
 
         # Style the format buttons - unified appearance with green highlighting for active
         format_button_style = """
@@ -1009,13 +1020,12 @@ class MainWindow(QMainWindow):
         self.analytics_widget = AnalyticsWidget()
         self.tabs.addTab(self.analytics_widget, "📊 Analytics")
 
-        # Settings tab (consolidates all settings)
-        self.settings_widget = SettingsWidget(self.config, self.recorder)
-        self.tabs.addTab(self.settings_widget, "⚙️ Settings")
-
         # About tab
         self.about_widget = AboutWidget()
         self.tabs.addTab(self.about_widget, "ℹ️ About")
+
+        # Settings dialog (opened via button, not a tab)
+        self.settings_dialog = None
 
         # Refresh data when switching tabs
         self.tabs.currentChanged.connect(self.on_tab_changed)
@@ -1308,14 +1318,12 @@ class MainWindow(QMainWindow):
 
     def on_tab_changed(self, index: int):
         """Handle tab change - refresh data in the selected tab."""
-        # Tabs: 0=Record, 1=File, 2=History, 3=Analytics, 4=Settings, 5=About
+        # Tabs: 0=Record, 1=File, 2=History, 3=Analytics, 4=About
         if index == 2:  # History tab
             self.history_widget.refresh()
         elif index == 3:  # Analytics tab
             self.analytics_widget.refresh()
-        elif index == 4:  # Settings tab
-            self.settings_widget.refresh()
-        # Record (0), File (1), About (5) don't need refresh
+        # Record (0), File (1), About (4) don't need refresh
 
     def on_history_transcription_selected(self, text: str):
         """Handle transcription selected from history - put in editor."""
@@ -2360,14 +2368,16 @@ class MainWindow(QMainWindow):
             QMessageBox.critical(self, "Download Error", f"Failed to save file: {e}")
 
     def show_settings(self):
-        """Show settings tab."""
-        # Switch to Settings tab (index 4)
-        self.tabs.setCurrentIndex(4)
-        # Show window if minimized
-        if self.isMinimized():
-            self.showNormal()
-        self.raise_()
-        self.activateWindow()
+        """Show settings dialog."""
+        # Create dialog if it doesn't exist
+        if self.settings_dialog is None:
+            self.settings_dialog = SettingsDialog(self.config, self.recorder, self)
+
+        # Refresh and show
+        self.settings_dialog.refresh()
+        self.settings_dialog.show()
+        self.settings_dialog.raise_()
+        self.settings_dialog.activateWindow()
 
     def show_window(self):
         """Show and raise the window."""

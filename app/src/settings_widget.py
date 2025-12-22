@@ -4,7 +4,7 @@ from PyQt6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel, QTabWidget,
     QLineEdit, QCheckBox, QComboBox, QGroupBox, QFormLayout,
     QPushButton, QSpinBox, QFrame, QMessageBox, QFileDialog,
-    QTextEdit, QScrollArea,
+    QTextEdit, QScrollArea, QDialog, QDialogButtonBox,
 )
 from PyQt6.QtCore import Qt, pyqtSignal
 from PyQt6.QtGui import QFont
@@ -832,3 +832,36 @@ class SettingsWidget(QWidget):
         formats_widget = self.tabs.widget(3)  # Output Formats tab (was 2, now 3 after adding Model Selection)
         if hasattr(formats_widget, 'refresh'):
             formats_widget.refresh()
+
+
+class SettingsDialog(QDialog):
+    """Settings dialog window containing the settings widget."""
+
+    def __init__(self, config: Config, recorder, parent=None):
+        super().__init__(parent)
+        self.config = config
+        self.recorder = recorder
+        self._init_ui()
+
+    def _init_ui(self):
+        self.setWindowTitle("Settings")
+        self.setMinimumSize(700, 550)
+        self.resize(750, 600)
+
+        layout = QVBoxLayout(self)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(0)
+
+        # Embed the settings widget
+        self.settings_widget = SettingsWidget(self.config, self.recorder, self)
+        layout.addWidget(self.settings_widget)
+
+        # Close button at the bottom
+        button_box = QDialogButtonBox(QDialogButtonBox.StandardButton.Close)
+        button_box.rejected.connect(self.accept)
+        button_box.setContentsMargins(12, 8, 12, 12)
+        layout.addWidget(button_box)
+
+    def refresh(self):
+        """Refresh the settings widget."""
+        self.settings_widget.refresh()
