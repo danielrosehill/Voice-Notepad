@@ -70,9 +70,9 @@ from .hotkeys import (
 )
 from .cost_tracker import get_tracker
 from .history_widget import HistoryWidget
-from .analytics_widget import AnalyticsWidget
+from .analytics_widget import AnalyticsDialog
 from .settings_widget import SettingsDialog
-from .about_widget import AboutWidget
+from .about_widget import AboutDialog
 from .audio_feedback import get_feedback
 from .file_transcription_widget import FileTranscriptionWidget
 from .mic_naming_ai import MicrophoneNamingAI
@@ -383,13 +383,22 @@ class MainWindow(QMainWindow):
         main_layout.setSpacing(8)
         main_layout.setContentsMargins(12, 12, 12, 12)
 
-        # Header with settings
+        # Header with settings and other dialogs
         header = QHBoxLayout()
         header.addStretch()
+
+        analytics_btn = QPushButton("Analytics")
+        analytics_btn.clicked.connect(self.show_analytics)
+        header.addWidget(analytics_btn)
 
         settings_btn = QPushButton("Settings")
         settings_btn.clicked.connect(self.show_settings)
         header.addWidget(settings_btn)
+
+        about_btn = QPushButton("About")
+        about_btn.clicked.connect(self.show_about)
+        header.addWidget(about_btn)
+
         main_layout.addLayout(header)
 
         # Status indicator (tally light)
@@ -796,7 +805,7 @@ class MainWindow(QMainWindow):
 
         layout.addLayout(bottom)
 
-        # Bottom status bar: microphone (left) and cost (center)
+        # Bottom status bar: microphone (left), cost (center), beep toggle (right)
         status_bar = QHBoxLayout()
 
         # Microphone info (left)
@@ -815,6 +824,19 @@ class MainWindow(QMainWindow):
 
         status_bar.addStretch()
 
+        # Beep sounds toggle (right)
+        self.beep_checkbox = QCheckBox("🔔 Beep Sounds")
+        self.beep_checkbox.setStyleSheet("color: #888; font-size: 10px;")
+        self.beep_checkbox.setToolTip(
+            "Enable/disable audio beeps for recording start/stop and clipboard copy.\n"
+            "This controls all beep sounds in the application."
+        )
+        # Checked if either beep setting is enabled
+        beeps_enabled = self.config.beep_on_record or self.config.beep_on_clipboard
+        self.beep_checkbox.setChecked(beeps_enabled)
+        self.beep_checkbox.toggled.connect(self._on_beep_toggle_changed)
+        status_bar.addWidget(self.beep_checkbox)
+
         layout.addLayout(status_bar)
 
         # Initialize mic and cost displays
@@ -832,22 +854,16 @@ class MainWindow(QMainWindow):
         self.history_widget.transcription_selected.connect(self.on_history_transcription_selected)
         self.tabs.addTab(self.history_widget, "📝 History")
 
-        # Analytics tab (combines Cost + Analysis)
-        self.analytics_widget = AnalyticsWidget()
-        self.tabs.addTab(self.analytics_widget, "📊 Analytics")
-
         # Prompt Library tab
         self.prompt_library_widget = PromptLibraryWidget(CONFIG_DIR)
         self.prompt_library_widget.favorites_changed.connect(self._on_favorites_changed)
         self.prompt_library_widget.prompt_selected.connect(self._on_prompt_library_selection)
-        self.tabs.addTab(self.prompt_library_widget, "Prompts")
+        self.tabs.addTab(self.prompt_library_widget, "Prompt")
 
-        # About tab
-        self.about_widget = AboutWidget()
-        self.tabs.addTab(self.about_widget, "ℹ️ About")
-
-        # Settings dialog (opened via button, not a tab)
+        # Dialogs (opened via menu, not tabs)
         self.settings_dialog = None
+        self.analytics_dialog = None
+        self.about_dialog = None
 
         # Refresh data when switching tabs
         self.tabs.currentChanged.connect(self.on_tab_changed)
@@ -1140,12 +1156,10 @@ class MainWindow(QMainWindow):
 
     def on_tab_changed(self, index: int):
         """Handle tab change - refresh data in the selected tab."""
-        # Tabs: 0=Record, 1=File, 2=History, 3=Analytics, 4=About
+        # Tabs: 0=Record, 1=File, 2=History, 3=Prompt
         if index == 2:  # History tab
             self.history_widget.refresh()
-        elif index == 3:  # Analytics tab
-            self.analytics_widget.refresh()
-        # Record (0), File (1), About (4) don't need refresh
+        # Record (0), File (1), Prompt (3) don't need refresh
 
     def on_history_transcription_selected(self, text: str):
         """Handle transcription selected from history - put in editor."""
@@ -1248,6 +1262,20 @@ class MainWindow(QMainWindow):
                 self.social_post_format_btn.setChecked(True)
             else:
                 self.general_format_btn.setChecked(True)
+
+    def _on_beep_toggle_changed(self, checked: bool):
+        """Handle beep sounds checkbox toggle.
+
+        This is a unified toggle that controls all beep sounds in the application.
+        Updates both beep_on_record and beep_on_clipboard settings together.
+        """
+        self.config.beep_on_record = checked
+        self.config.beep_on_clipboard = checked
+        save_config(self.config)
+
+        # Also update the audio feedback instance immediately
+        feedback = get_feedback()
+        feedback.enabled = checked
 
     def _set_quick_format(self, format_key: str):
         """Handle quick format button clicks.
@@ -2225,12 +2253,48 @@ class MainWindow(QMainWindow):
         # Create dialog if it doesn't exist
         if self.settings_dialog is None:
             self.settings_dialog = SettingsDialog(self.config, self.recorder, self)
+            # Connect to settings_closed signal to sync beep checkbox
+            self.settings_dialog.settings_closed.connect(self._sync_beep_checkbox)
 
         # Refresh and show
         self.settings_dialog.refresh()
         self.settings_dialog.show()
         self.settings_dialog.raise_()
         self.settings_dialog.activateWindow()
+
+    def _sync_beep_checkbox(self):
+        """Sync the beep checkbox state with current config.
+
+        Called when settings dialog is closed to ensure the main UI
+        reflects any changes made in settings.
+        """
+        beeps_enabled = self.config.beep_on_record or self.config.beep_on_clipboard
+        # Block signals to prevent triggering the toggle handler
+        self.beep_checkbox.blockSignals(True)
+        self.beep_checkbox.setChecked(beeps_enabled)
+        self.beep_checkbox.blockSignals(False)
+
+    def show_analytics(self):
+        """Show analytics dialog."""
+        # Create dialog if it doesn't exist
+        if self.analytics_dialog is None:
+            self.analytics_dialog = AnalyticsDialog(self)
+
+        # Show (refreshes automatically via showEvent)
+        self.analytics_dialog.show()
+        self.analytics_dialog.raise_()
+        self.analytics_dialog.activateWindow()
+
+    def show_about(self):
+        """Show about dialog."""
+        # Create dialog if it doesn't exist
+        if self.about_dialog is None:
+            self.about_dialog = AboutDialog(self)
+
+        # Show
+        self.about_dialog.show()
+        self.about_dialog.raise_()
+        self.about_dialog.activateWindow()
 
     def show_window(self):
         """Show and raise the window."""

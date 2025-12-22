@@ -837,6 +837,9 @@ class SettingsWidget(QWidget):
 class SettingsDialog(QDialog):
     """Settings dialog window containing the settings widget."""
 
+    # Signal emitted when settings dialog is closed (settings may have changed)
+    settings_closed = pyqtSignal()
+
     def __init__(self, config: Config, recorder, parent=None):
         super().__init__(parent)
         self.config = config
@@ -865,3 +868,8 @@ class SettingsDialog(QDialog):
     def refresh(self):
         """Refresh the settings widget."""
         self.settings_widget.refresh()
+
+    def closeEvent(self, event):
+        """Emit signal when dialog is closed."""
+        self.settings_closed.emit()
+        super().closeEvent(event)

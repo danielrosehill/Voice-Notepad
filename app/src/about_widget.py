@@ -1,4 +1,4 @@
-"""About tab widget showing version and keyboard shortcuts."""
+"""About widget showing version and keyboard shortcuts."""
 
 from PyQt6.QtWidgets import (
     QWidget,
@@ -8,6 +8,8 @@ from PyQt6.QtWidgets import (
     QScrollArea,
     QFrame,
     QHBoxLayout,
+    QDialog,
+    QDialogButtonBox,
 )
 from PyQt6.QtCore import Qt
 from PyQt6.QtGui import QFont, QPixmap
@@ -394,3 +396,30 @@ class AboutWidget(QWidget):
 
         scroll.setWidget(content)
         main_layout.addWidget(scroll)
+
+
+class AboutDialog(QDialog):
+    """About dialog window containing the about widget."""
+
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self._init_ui()
+
+    def _init_ui(self):
+        self.setWindowTitle("About Voice Notepad")
+        self.setMinimumSize(450, 400)
+        self.resize(500, 600)
+
+        layout = QVBoxLayout(self)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(0)
+
+        # Embed the about widget
+        self.about_widget = AboutWidget(self)
+        layout.addWidget(self.about_widget)
+
+        # Close button at the bottom
+        button_box = QDialogButtonBox(QDialogButtonBox.StandardButton.Close)
+        button_box.rejected.connect(self.accept)
+        button_box.setContentsMargins(12, 8, 12, 12)
+        layout.addWidget(button_box)

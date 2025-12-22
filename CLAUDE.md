@@ -123,43 +123,64 @@ MISTRAL_API_KEY=your_key
 
 ### The Cleanup Prompt
 
-Voice Notepad uses a layered prompt system to transform speech into clean, well-formatted text.
+Voice Notepad uses a layered prompt system to transform speech into clean, well-formatted text. This is single-pass dictation processing: audio in, edited text out.
 
 #### Foundation Cleanup (Always Applied)
 
 The foundation layer is always applied to every transcription. This is what distinguishes Voice Notepad from traditional speech-to-text. Defined in `config.py` as `FOUNDATION_PROMPT_SECTIONS`.
 
-**1. Filler & Noise Removal**
-- Remove filler words (um, uh, like, you know, so, well, etc.)
-- Remove verbal tics and hedging phrases ("you know", "I mean", "kind of", "basically", etc.)
-- Remove standalone acknowledgments that don't add meaning ("Okay.", "Right.", etc.)
+**1. Task Definition**
+- Transform audio into polished, publication-ready text—not a verbatim transcript
+- Apply intelligent editing, removing artifacts of natural speech while preserving intended meaning
+- Output only the transformed text, no preamble or commentary
 
-**2. Structure & Punctuation**
-- Add proper punctuation and sentence structure
-- Add natural paragraph spacing
-- For lengthy transcriptions with distinct topics, add markdown subheadings
+**2. User Details**
+- User's name (Daniel) is used for signatures where appropriate (e.g., emails)
+- Additional personalization elements (email, signature) are injected into templates
 
-**3. Clarity**
-- Clarify confusing or illogical phrasing while preserving all details and original meaning
-- Make language more direct and concise — tighten rambling sentences without removing information
+**3. Background Audio**
+- Exclude audio not intended for transcription: greetings to others, side conversations, delivery interruptions, background noise
+- Include only content representing the user's intended message
 
-**4. Inferred Instructions**
+**4. Filler Words**
+- Remove filler words and verbal hesitations: "um", "uh", "er", "like", "you know", "I mean", "basically", "actually", "sort of", "kind of", "well" (at sentence beginnings)
+- Preserve these words only when they carry semantic meaning
 
-The model interprets verbal cues you give during recording:
+**5. Repetitions**
+- Remove redundant repetitions where the same thought is expressed multiple times
+- Consolidate repeated concepts into a single, clear expression
 
-- **Self-corrections**: If you say "I want to go to the cinema. No wait, I mean the supermarket", the output will be "I want to go to the supermarket" — only the corrected version
-- **Spelling clarifications**: If you say "We need to use ZOD. ZOD is spelled Z-O-D", the output uses the correct spelling but omits the spelling instruction
-- **Explicit exclusions**: If you say "don't include this" or "skip that part", those sections are removed
+**6. Meta Instructions**
+- Honor verbal directives like "scratch that", "don't include that", "ignore what I just said"
+- Remove the meta-instructions themselves from the output
 
-**5. Format & Context Detection**
+**7. Spelling Clarifications**
+- When user spells out a word ("Zod is spelled Z-O-D"), use correct spelling but omit the instruction
+- Handles infrequently encountered words and technical terms
 
-- If you explicitly request a format ("format this as a to-do list", "make this an email"), the output honors that format
-- If content is clearly a specific format (email, list, instructions) even without explicit request, it's formatted appropriately
-- Language tone matches detected context: business emails use professional language, casual notes stay informal
+**8. Grammar & Typos**
+- Correct spelling errors, typos, and grammatical mistakes
+- Fix subject-verb agreement, tense consistency, proper word usage
+- Fix homophones (their/there/they're, your/you're)
+- Correct minor speech grammar errors (e.g., "into the option" → "into the options")
+
+**9. Punctuation**
+- Add periods, commas, colons, semicolons, question marks, quotation marks
+- Break text into logical paragraphs based on topic shifts
+- Ensure proper capitalization
+
+**10. Format Detection**
+- Infer intended format (email, to-do list, meeting notes) and format accordingly
+- Match tone to context: professional for business, informal for casual
+
+**11. Clarity**
+- Tighten rambling sentences without removing information
+- Clarify confusing phrasing while preserving meaning
 
 #### Optional Enhancements (Checkboxes)
 
 Additional options available in Settings → Prompt:
+- Add subheadings for long transcriptions
 - Use markdown formatting (bold, lists, etc.)
 - Remove unintentional dialogue (if the AI can confidently detect it was accidental)
 - Enhance AI prompts for effectiveness (only applies to prompt-format outputs)

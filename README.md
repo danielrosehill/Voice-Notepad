@@ -2,14 +2,20 @@
 
 ![alt text](screenshots/manual/3.png)
 
-A desktop application for voice recording with AI-powered transcription and cleanup. Uses multimodal AI models to transcribe audio and clean it up in a single pass, eliminating the traditional two-step ASR + LLM approach.
-
 ![Voice Notepad Screenshot](screenshots/manual/2.png)
 
 ![Vibe Coding Disclosure](graphics/vibe-coding-disclosure.png)
 
 
 **Download:** [GitHub Releases](https://github.com/danielrosehill/Voice-Notepad/releases) (AppImage, Windows Installer, Debian .deb, Tarball)
+
+This voice notepad app is a consolidation of various prototypes I've been working on this past year.
+
+It uses Gemini multimodal for transcription, supporting both a basic cleanup mode for applying a carefully selected list of basic text remediation instructions, as well as user-defined modes with presets for common formats and personalization support for injecting personalized elements like name and signature into email bodies.
+
+Audio multimodal provides a compelling and often overlooked alternative to ASR and LLM based voice transcription, in my opinion. I periodically share my actual cost metrics from the app to demonstrate just how cost-effective it is (I'm using Gemini 2.5 via Open Router API).
+
+![alt text](screenshots/manual/4.png)
 
 ## How It Works
 

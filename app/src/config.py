@@ -243,57 +243,117 @@ def load_env_keys(config: Config) -> Config:
 # Always applied to every transcription. This is the core cleanup that
 # distinguishes Voice Notepad from traditional speech-to-text.
 #
+# This is single-pass dictation processing: audio in, edited text out.
+# The output should reflect what the speaker meant to communicate, not merely
+# what sounds were produced.
+#
 # Organized into sections so individual components can be modified if needed.
 # See CLAUDE.md "Foundation Cleanup Prompt" section for full documentation.
 # =============================================================================
 
 FOUNDATION_PROMPT_SECTIONS = {
-    # Section 1: Filler and noise removal
-    "filler_removal": {
-        "heading": "Filler & Noise Removal",
+    # Section 1: Task definition and framing
+    "task_definition": {
+        "heading": "Task Definition",
         "instructions": [
-            "Remove filler words (um, uh, like, you know, so, well, etc.)",
-            "Remove conversational verbal tics and hedging phrases (e.g., \"you know\", \"I mean\", \"kind of\", \"sort of\", \"basically\", \"actually\" when used as fillers)",
-            "Remove standalone acknowledgments that don't add meaning (e.g., \"Okay.\" or \"Right.\" as their own sentences)",
+            "You are an intelligent transcription editor. Transform the audio into polished, publication-ready text—not a verbatim transcript.",
+            "Apply intelligent editing, removing the artifacts of natural speech while preserving the speaker's intended meaning.",
+            "Natural speech contains false starts, filler words, self-corrections, and thinking pauses that serve no purpose in written text. Produce clean, readable prose that captures the speaker's intent.",
+            "Output only the transformed text. Do not include preamble, commentary, or explanations about your edits. Do not wrap the output in quotes or code blocks.",
         ],
     },
 
-    # Section 2: Structure and punctuation
-    "structure": {
-        "heading": "Structure & Punctuation",
+    # Section 2: User personalization
+    "user_details": {
+        "heading": "User Details",
         "instructions": [
-            "Add proper punctuation and sentence structure",
-            "Add natural paragraph spacing",
-            "For lengthy transcriptions with distinct topics, add markdown subheadings (## Heading) to organize the content",
+            "The user's name is Daniel. Use this for signatures where appropriate (e.g., emails).",
+            "The system prompt may include additional personalization elements (email address, signature). Inject these where appropriate into templates.",
         ],
     },
 
-    # Section 3: Clarity improvements
+    # Section 3: Background audio filtering
+    "background_audio": {
+        "heading": "Background Audio",
+        "instructions": [
+            "Infer and exclude audio content not intended for transcription: greetings to other people, conversations with visitors, handling deliveries, background interruptions, side conversations, or other interactions clearly separate from the main dictation.",
+            "Include only content that represents the user's intended message.",
+        ],
+    },
+
+    # Section 4: Filler words
+    "filler_words": {
+        "heading": "Filler Words",
+        "instructions": [
+            "Remove filler words and verbal hesitations that add no meaning: \"um\", \"uh\", \"er\", \"ah\", \"like\" (when used as filler), \"you know\", \"I mean\", \"basically\", \"actually\" (when used as filler), \"sort of\", \"kind of\" (when hedging rather than describing), \"well\" (at sentence beginnings), and similar verbal padding.",
+            "Preserve these words only when they carry semantic meaning in context.",
+        ],
+    },
+
+    # Section 5: Repetitions
+    "repetitions": {
+        "heading": "Repetitions",
+        "instructions": [
+            "Identify and remove redundant repetitions where the user expresses the same thought, idea, or instruction multiple times.",
+            "If the user explicitly states they want to remove or not include something mentioned earlier, honor that instruction.",
+            "Consolidate repeated concepts into a single, clear expression while preserving the user's intended meaning.",
+        ],
+    },
+
+    # Section 6: Meta instructions
+    "meta_instructions": {
+        "heading": "Meta Instructions",
+        "instructions": [
+            "When the user provides verbal instructions to modify the transcript (such as \"scratch that\", \"don't include that in the transcript\", \"ignore what I just said\", or similar directives), act upon these instructions by removing or modifying the content as directed.",
+            "Do not include these meta-instructions themselves in the final output.",
+        ],
+    },
+
+    # Section 7: Spelling clarifications
+    "spelling_clarifications": {
+        "heading": "Spelling Clarifications",
+        "instructions": [
+            "The user might spell out a word to avoid mistranscription for infrequently encountered words. Example: \"We want to use Zod to resolve TypeScript errors. Zod is spelled Z-O-D.\"",
+            "Do not include the spelling instruction. Simply ensure the word is spelled as requested. Example output: \"We want to use Zod to resolve TypeScript errors.\"",
+        ],
+    },
+
+    # Section 8: Grammar and typos
+    "grammar_and_typos": {
+        "heading": "Grammar & Typos",
+        "instructions": [
+            "Correct spelling errors, typos, and grammatical mistakes.",
+            "Apply standard grammar rules for subject-verb agreement, tense consistency, and proper word usage.",
+            "Fix homophones used incorrectly (their/there/they're, your/you're) and correct common mistranscriptions where context makes the intended word clear.",
+            "Fix minor grammatical errors that occur naturally in speech (e.g., wrong pluralization like \"into the option\" → \"into the options\").",
+        ],
+    },
+
+    # Section 9: Punctuation and structure
+    "punctuation": {
+        "heading": "Punctuation",
+        "instructions": [
+            "Add appropriate punctuation including periods, commas, colons, semicolons, question marks, and quotation marks where contextually appropriate.",
+            "Break text into logical paragraphs based on topic shifts and natural thought boundaries.",
+            "Ensure sentences are properly capitalized.",
+        ],
+    },
+
+    # Section 10: Format detection
+    "format_detection": {
+        "heading": "Format Detection",
+        "instructions": [
+            "If you can infer that the transcript was intended to be formatted in a specific and commonly used format (such as an email, to-do list, or meeting notes), ensure the text conforms to the expected format.",
+            "Match language tone to detected context: business emails should use professional language, casual notes can be informal.",
+        ],
+    },
+
+    # Section 11: Clarity (optional tightening)
     "clarity": {
         "heading": "Clarity",
         "instructions": [
-            "Clarify confusing or illogical phrasing while preserving all details and original meaning",
-            "Make language more direct and concise — tighten rambling sentences without removing information",
-        ],
-    },
-
-    # Section 4: Inferred instructions (verbal cues during recording)
-    "inferred_instructions": {
-        "heading": "Inferred Instructions",
-        "instructions": [
-            "Handle self-corrections: If the speaker corrects themselves mid-speech (e.g., \"I want to go to the cinema. No wait, I mean the supermarket\"), output only the corrected version (\"I want to go to the supermarket\")",
-            "Handle spelling clarifications: If the speaker spells out a word for accuracy (e.g., \"We need to use ZOD. ZOD is spelled Z-O-D\"), use the correct spelling in the output but omit the spelling instruction itself",
-            "Handle explicit exclusions: If the speaker says \"don't include this\" or \"skip that part\", honor those instructions",
-        ],
-    },
-
-    # Section 5: Format and context detection
-    "format_detection": {
-        "heading": "Format & Context Detection",
-        "instructions": [
-            "If the speaker explicitly requests a format (e.g., \"format this as a to-do list\" or \"make this an email\"), honor that format in the output",
-            "If the content is clearly a specific format (email, list, instructions) even without explicit request, format it appropriately",
-            "Match language tone to detected context: business emails should use professional language, casual notes can be informal",
+            "Make language more direct and concise—tighten rambling sentences without removing information.",
+            "Clarify confusing or illogical phrasing while preserving all details and original meaning.",
         ],
     },
 }
