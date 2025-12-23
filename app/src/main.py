@@ -748,8 +748,13 @@ class MainWindow(QMainWindow):
 
         # Microphone info (left)
         self.mic_label = QLabel()
-        self.mic_label.setStyleSheet("color: #888; font-size: 10px;")
+        self.mic_label.setStyleSheet("color: #888; font-size: 11px;")
         status_bar.addWidget(self.mic_label)
+
+        # Model info (left-center)
+        self.model_label = QLabel()
+        self.model_label.setStyleSheet("color: #888; font-size: 11px;")
+        status_bar.addWidget(self.model_label)
 
         status_bar.addStretch()
 
@@ -763,8 +768,9 @@ class MainWindow(QMainWindow):
         status_bar.addStretch()
         layout.addLayout(status_bar)
 
-        # Initialize mic and cost displays
+        # Initialize mic, model, and cost displays
         self._update_mic_display()
+        self._update_model_display()
         self._update_cost_display()
 
         self.tabs.addTab(record_tab, "🎙️ Record")
@@ -1788,6 +1794,38 @@ class MainWindow(QMainWindow):
 
         return (actual_device_name, actual_device_name)
 
+    def _update_model_display(self):
+        """Update the model display label."""
+        provider, model = self._get_current_model()
+        # Show just the model name (strip provider prefix if present)
+        display_name = model
+        if "/" in display_name:
+            display_name = display_name.split("/")[-1]
+        # Truncate if too long
+        if len(display_name) > 25:
+            display_name = display_name[:22] + "..."
+        self.model_label.setText(f"Model: {display_name}")
+        self.model_label.setToolTip(f"Provider: {provider}\nModel: {model}\nChange in Settings → Model")
+
+    def _get_current_model(self) -> tuple[str, str]:
+        """Get the currently selected provider and model.
+
+        Returns:
+            Tuple of (provider, model).
+        """
+        provider = self.config.selected_provider
+        if provider == "openrouter":
+            model = self.config.openrouter_model
+        elif provider == "gemini":
+            model = self.config.gemini_model
+        elif provider == "openai":
+            model = self.config.openai_model
+        elif provider == "mistral":
+            model = self.config.mistral_model
+        else:
+            model = "unknown"
+        return (provider, model)
+
     def reset_ui(self):
         """Reset UI to initial state.
 
@@ -2148,6 +2186,10 @@ class MainWindow(QMainWindow):
         self.auto_paste_cb.blockSignals(True)
         self.auto_paste_cb.setChecked(self.config.auto_paste)
         self.auto_paste_cb.blockSignals(False)
+
+        # Update status bar displays in case they changed
+        self._update_mic_display()
+        self._update_model_display()
 
     def show_analytics(self):
         """Show analytics dialog."""
