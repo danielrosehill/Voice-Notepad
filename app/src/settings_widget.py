@@ -905,11 +905,24 @@ class SettingsDialog(QDialog):
         self.settings_widget = SettingsWidget(self.config, self.recorder, self)
         layout.addWidget(self.settings_widget)
 
-        # Close button at the bottom
-        button_box = QDialogButtonBox(QDialogButtonBox.StandardButton.Close)
-        button_box.rejected.connect(self.accept)
-        button_box.setContentsMargins(12, 8, 12, 12)
-        layout.addWidget(button_box)
+        # Bottom bar with auto-save note and close button
+        bottom_bar = QHBoxLayout()
+        bottom_bar.setContentsMargins(16, 8, 16, 12)
+
+        # Auto-save indicator
+        auto_save_note = QLabel("Changes are saved automatically")
+        auto_save_note.setStyleSheet("color: #666; font-size: 11px; font-style: italic;")
+        bottom_bar.addWidget(auto_save_note)
+
+        bottom_bar.addStretch()
+
+        # Close button
+        close_btn = QPushButton("Close")
+        close_btn.clicked.connect(self.accept)
+        close_btn.setFixedWidth(80)
+        bottom_bar.addWidget(close_btn)
+
+        layout.addLayout(bottom_bar)
 
     def refresh(self):
         """Refresh the settings widget."""
