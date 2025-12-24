@@ -7,8 +7,6 @@
 
 **Download:** [GitHub Releases](https://github.com/danielrosehill/Voice-Notepad/releases) (AppImage, Windows Installer, Debian .deb, Tarball)
 
-## Why This App Is Different!
-
 Over the past year, I've been using AI extensively for speech-to-text tasks, specifically by combining ASR models like Whisper for transcription with LLMs like GPT-4 for rewriting / transcript post-processing.
 
 This transcription utility has takes a different approach by using an audio multimodal model for single-pass text transcription and cleanup (the default model is Gemini Flash 2.5 although in theory any multimodal model with audio understanding and which can process audio and text tokens simultaneously would be suitable).
