@@ -11,7 +11,7 @@ from PyQt6.QtGui import QFont
 
 from .config import (
     Config, save_config, load_env_keys,
-    GEMINI_MODELS, OPENAI_MODELS, MISTRAL_MODELS, OPENROUTER_MODELS,
+    GEMINI_MODELS, OPENROUTER_MODELS,
     MODEL_TIERS,
 )
 from .mic_test_widget import MicTestWidget
@@ -40,7 +40,7 @@ class APIKeysWidget(QWidget):
 
         desc = QLabel(
             "Configure API keys for transcription providers. "
-            "OpenRouter is recommended as it provides access to multiple models through a single API key."
+            "Gemini direct is recommended for access to the dynamic 'gemini-flash-latest' endpoint."
         )
         desc.setWordWrap(True)
         desc.setStyleSheet("color: #666; margin-bottom: 12px;")
@@ -51,7 +51,21 @@ class APIKeysWidget(QWidget):
         api_form.setSpacing(12)
         api_form.setFieldGrowthPolicy(QFormLayout.FieldGrowthPolicy.ExpandingFieldsGrow)
 
-        # OpenRouter
+        # Gemini (recommended)
+        self.gemini_key = QLineEdit()
+        self.gemini_key.setText(self.config.gemini_api_key)
+        self.gemini_key.setPlaceholderText("AI...")
+        self.gemini_key.setEchoMode(QLineEdit.EchoMode.Password)
+        self.gemini_key.textChanged.connect(lambda: self._save_key("gemini_api_key", self.gemini_key.text()))
+
+        gem_layout = QVBoxLayout()
+        gem_layout.addWidget(self.gemini_key)
+        gem_help = QLabel("⭐ Recommended: Supports dynamic 'gemini-flash-latest' endpoint")
+        gem_help.setStyleSheet("color: #28a745; font-size: 10px; margin-left: 2px;")
+        gem_layout.addWidget(gem_help)
+        api_form.addRow("Gemini API Key:", gem_layout)
+
+        # OpenRouter (alternative)
         self.openrouter_key = QLineEdit()
         self.openrouter_key.setText(self.config.openrouter_api_key)
         self.openrouter_key.setPlaceholderText("sk-or-v1-...")
@@ -60,34 +74,10 @@ class APIKeysWidget(QWidget):
 
         or_layout = QVBoxLayout()
         or_layout.addWidget(self.openrouter_key)
-        or_help = QLabel("Recommended: Access Gemini, GPT-4o, and Voxtral models")
-        or_help.setStyleSheet("color: #28a745; font-size: 10px; margin-left: 2px;")
+        or_help = QLabel("Alternative: Access Gemini models via OpenAI-compatible API")
+        or_help.setStyleSheet("color: #666; font-size: 10px; margin-left: 2px;")
         or_layout.addWidget(or_help)
         api_form.addRow("OpenRouter API Key:", or_layout)
-
-        # Gemini
-        self.gemini_key = QLineEdit()
-        self.gemini_key.setText(self.config.gemini_api_key)
-        self.gemini_key.setPlaceholderText("AI...")
-        self.gemini_key.setEchoMode(QLineEdit.EchoMode.Password)
-        self.gemini_key.textChanged.connect(lambda: self._save_key("gemini_api_key", self.gemini_key.text()))
-        api_form.addRow("Gemini API Key:", self.gemini_key)
-
-        # OpenAI
-        self.openai_key = QLineEdit()
-        self.openai_key.setText(self.config.openai_api_key)
-        self.openai_key.setPlaceholderText("sk-...")
-        self.openai_key.setEchoMode(QLineEdit.EchoMode.Password)
-        self.openai_key.textChanged.connect(lambda: self._save_key("openai_api_key", self.openai_key.text()))
-        api_form.addRow("OpenAI API Key:", self.openai_key)
-
-        # Mistral
-        self.mistral_key = QLineEdit()
-        self.mistral_key.setText(self.config.mistral_api_key)
-        self.mistral_key.setPlaceholderText("...")
-        self.mistral_key.setEchoMode(QLineEdit.EchoMode.Password)
-        self.mistral_key.textChanged.connect(lambda: self._save_key("mistral_api_key", self.mistral_key.text()))
-        api_form.addRow("Mistral API Key:", self.mistral_key)
 
         layout.addLayout(api_form)
 
@@ -105,33 +95,19 @@ class APIKeysWidget(QWidget):
         models_layout = QVBoxLayout(models_group)
         models_layout.setSpacing(8)
 
+        # Gemini models (primary)
+        gem_models = [name for _, name in GEMINI_MODELS]
+        gem_label = QLabel("<b>Gemini (Direct):</b> " + ", ".join(gem_models))
+        gem_label.setWordWrap(True)
+        gem_label.setStyleSheet("padding: 4px;")
+        models_layout.addWidget(gem_label)
+
         # OpenRouter models
         or_models = [name for _, name in OPENROUTER_MODELS]
         or_label = QLabel("<b>OpenRouter:</b> " + ", ".join(or_models))
         or_label.setWordWrap(True)
         or_label.setStyleSheet("padding: 4px;")
         models_layout.addWidget(or_label)
-
-        # Gemini models
-        gem_models = [name for _, name in GEMINI_MODELS]
-        gem_label = QLabel("<b>Gemini:</b> " + ", ".join(gem_models))
-        gem_label.setWordWrap(True)
-        gem_label.setStyleSheet("padding: 4px;")
-        models_layout.addWidget(gem_label)
-
-        # OpenAI models
-        oai_models = [name for _, name in OPENAI_MODELS]
-        oai_label = QLabel("<b>OpenAI:</b> " + ", ".join(oai_models))
-        oai_label.setWordWrap(True)
-        oai_label.setStyleSheet("padding: 4px;")
-        models_layout.addWidget(oai_label)
-
-        # Mistral models
-        mis_models = [name for _, name in MISTRAL_MODELS]
-        mis_label = QLabel("<b>Mistral:</b> " + ", ".join(mis_models))
-        mis_label.setWordWrap(True)
-        mis_label.setStyleSheet("padding: 4px;")
-        models_layout.addWidget(mis_label)
 
         layout.addWidget(models_group)
         layout.addStretch()
@@ -636,12 +612,10 @@ class ModelSelectionWidget(QWidget):
         self.provider_combo = QComboBox()
         self.provider_combo.setIconSize(QSize(16, 16))
 
-        # Add providers with icons
+        # Add providers with icons (Gemini first as recommended)
         providers = [
-            ("Open Router", "openrouter"),
-            ("Google", "google"),
-            ("OpenAI", "openai"),
-            ("Mistral", "mistral")
+            ("Google Gemini (Recommended)", "google"),
+            ("OpenRouter", "openrouter"),
         ]
         for display_name, provider_key in providers:
             icon = self._get_provider_icon(provider_key)
@@ -649,10 +623,8 @@ class ModelSelectionWidget(QWidget):
 
         # Set current provider
         provider_map = {
-            "openrouter": "Open Router",
-            "gemini": "Google",
-            "openai": "OpenAI",
-            "mistral": "Mistral",
+            "gemini": "Google Gemini (Recommended)",
+            "openrouter": "OpenRouter",
         }
         provider_display = provider_map.get(self.config.selected_provider, self.config.selected_provider.title())
         self.provider_combo.setCurrentText(provider_display)
@@ -724,11 +696,8 @@ class ModelSelectionWidget(QWidget):
         icons_dir = Path(__file__).parent / "icons"
         icon_map = {
             "openrouter": "or_icon.png",
-            "open router": "or_icon.png",
             "gemini": "gemini_icon.png",
             "google": "gemini_icon.png",
-            "openai": "openai_icon.png",
-            "mistral": "mistral_icon.png",
         }
         icon_filename = icon_map.get(provider.lower(), "")
         if icon_filename:
@@ -742,12 +711,9 @@ class ModelSelectionWidget(QWidget):
         icons_dir = Path(__file__).parent / "icons"
         model_lower = model_id.lower()
 
+        # All models are now Gemini-based
         if model_lower.startswith("google/") or model_lower.startswith("gemini"):
             icon_filename = "gemini_icon.png"
-        elif model_lower.startswith("openai/") or model_lower.startswith("gpt"):
-            icon_filename = "openai_icon.png"
-        elif model_lower.startswith("mistralai/") or model_lower.startswith("voxtral"):
-            icon_filename = "mistral_icon.png"
         else:
             return QIcon()
 
@@ -762,18 +728,12 @@ class ModelSelectionWidget(QWidget):
         self.model_combo.clear()
 
         provider = self.config.selected_provider.lower()
-        if provider == "openrouter":
-            models = OPENROUTER_MODELS
-            current_model = self.config.openrouter_model
-        elif provider == "gemini":
+        if provider == "gemini":
             models = GEMINI_MODELS
             current_model = self.config.gemini_model
-        elif provider == "openai":
-            models = OPENAI_MODELS
-            current_model = self.config.openai_model
-        else:
-            models = MISTRAL_MODELS
-            current_model = self.config.mistral_model
+        else:  # openrouter
+            models = OPENROUTER_MODELS
+            current_model = self.config.openrouter_model
 
         # Add models with model originator icon
         for model_id, display_name in models:
@@ -790,12 +750,10 @@ class ModelSelectionWidget(QWidget):
     def _on_provider_changed(self, provider_display: str):
         """Handle provider change."""
         display_to_internal = {
-            "Open Router": "openrouter",
-            "Google": "gemini",
-            "OpenAI": "openai",
-            "Mistral": "mistral",
+            "Google Gemini (Recommended)": "gemini",
+            "OpenRouter": "openrouter",
         }
-        self.config.selected_provider = display_to_internal.get(provider_display, provider_display.lower())
+        self.config.selected_provider = display_to_internal.get(provider_display, "gemini")
         self._update_model_combo()
         self._update_tier_buttons()
         save_config(self.config)
@@ -807,14 +765,10 @@ class ModelSelectionWidget(QWidget):
         model_id = self.model_combo.currentData()
         provider = self.config.selected_provider.lower()
 
-        if provider == "openrouter":
-            self.config.openrouter_model = model_id
-        elif provider == "gemini":
+        if provider == "gemini":
             self.config.gemini_model = model_id
-        elif provider == "openai":
-            self.config.openai_model = model_id
-        else:
-            self.config.mistral_model = model_id
+        else:  # openrouter
+            self.config.openrouter_model = model_id
 
         save_config(self.config)
         self._update_tier_buttons()

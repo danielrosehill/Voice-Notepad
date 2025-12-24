@@ -12,55 +12,35 @@ CONFIG_FILE = CONFIG_DIR / "config.json"
 
 
 # Available models per provider (model_id, display_name)
+# Gemini Direct (recommended) - uses Google's dynamic "latest" endpoint
 GEMINI_MODELS = [
-    ("gemini-flash-latest", "Gemini Flash (Latest)"),
+    ("gemini-flash-latest", "Gemini Flash (Latest) ⭐"),
     ("gemini-2.5-flash", "Gemini 2.5 Flash"),
     ("gemini-2.5-flash-lite", "Gemini 2.5 Flash Lite (Budget)"),
     ("gemini-2.5-pro", "Gemini 2.5 Pro"),
     ("gemini-3-flash-preview", "Gemini 3 Flash (Preview)"),
 ]
 
-OPENAI_MODELS = [
-    ("gpt-4o-audio-preview", "GPT-4o Audio Preview"),
-    ("gpt-4o-mini-audio-preview", "GPT-4o Mini Audio Preview (Budget)"),
-    ("gpt-audio", "GPT Audio"),
-    ("gpt-audio-mini", "GPT Audio Mini (Budget)"),
-]
-
-MISTRAL_MODELS = [
-    ("voxtral-small-latest", "Voxtral Small (Latest)"),
-    ("voxtral-mini-latest", "Voxtral Mini (Budget)"),
-]
-
-# OpenRouter models (using OpenAI-compatible API)
+# OpenRouter models - Gemini models only (OpenAI-compatible API)
+# Note: OpenRouter doesn't support the dynamic "gemini-flash-latest" endpoint
 OPENROUTER_MODELS = [
     ("google/gemini-2.5-flash", "Gemini 2.5 Flash"),
     ("google/gemini-2.5-flash-lite", "Gemini 2.5 Flash Lite (Budget)"),
     ("google/gemini-2.0-flash-001", "Gemini 2.0 Flash"),
     ("google/gemini-2.0-flash-lite-001", "Gemini 2.0 Flash Lite (Budget)"),
     ("google/gemini-3-flash-preview", "Gemini 3 Flash (Preview)"),
-    ("openai/gpt-4o-audio-preview", "GPT-4o Audio Preview"),
-    ("mistralai/voxtral-small-24b-2507", "Voxtral Small 24B"),
 ]
 
 # Standard and Budget model tiers per provider
 # These define which models the quick-toggle buttons select
 MODEL_TIERS = {
+    "gemini": {
+        "standard": "gemini-flash-latest",
+        "budget": "gemini-2.5-flash-lite",
+    },
     "openrouter": {
         "standard": "google/gemini-2.5-flash",
         "budget": "google/gemini-2.5-flash-lite",
-    },
-    "gemini": {
-        "standard": "gemini-2.5-flash",
-        "budget": "gemini-2.5-flash-lite",
-    },
-    "openai": {
-        "standard": "gpt-4o-audio-preview",
-        "budget": "gpt-4o-mini-audio-preview",
-    },
-    "mistral": {
-        "standard": "voxtral-small-latest",
-        "budget": "voxtral-mini-latest",
     },
 }
 
@@ -71,17 +51,15 @@ class Config:
 
     # API Keys
     gemini_api_key: str = ""
-    openai_api_key: str = ""
-    mistral_api_key: str = ""
     openrouter_api_key: str = ""
 
-    # Selected model provider: "openrouter", "gemini", "openai", "mistral"
-    selected_provider: str = "openrouter"
+    # Selected model provider: "gemini" (recommended) or "openrouter"
+    # Gemini direct is recommended because it supports the dynamic "gemini-flash-latest"
+    # endpoint which always points to Google's latest Flash model automatically.
+    selected_provider: str = "gemini"
 
     # Model names per provider
     gemini_model: str = "gemini-flash-latest"
-    openai_model: str = "gpt-4o-mini-audio-preview"
-    mistral_model: str = "voxtral-small-latest"
     openrouter_model: str = "google/gemini-2.5-flash"
 
     # Audio settings
@@ -238,10 +216,6 @@ def load_env_keys(config: Config) -> Config:
     """Load API keys from environment variables if not already set."""
     if not config.gemini_api_key:
         config.gemini_api_key = os.environ.get("GEMINI_API_KEY", "")
-    if not config.openai_api_key:
-        config.openai_api_key = os.environ.get("OPENAI_API_KEY", "")
-    if not config.mistral_api_key:
-        config.mistral_api_key = os.environ.get("MISTRAL_API_KEY", "")
     if not config.openrouter_api_key:
         config.openrouter_api_key = os.environ.get("OPENROUTER_API_KEY", "")
     return config

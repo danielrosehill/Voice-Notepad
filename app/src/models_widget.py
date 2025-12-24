@@ -13,20 +13,20 @@ from PyQt6.QtCore import Qt
 from PyQt6.QtGui import QFont, QIcon
 from pathlib import Path
 
-from .config import GEMINI_MODELS, OPENAI_MODELS, MISTRAL_MODELS, OPENROUTER_MODELS
+from .config import GEMINI_MODELS, OPENROUTER_MODELS
 
 
 # Model metadata with additional notes
 MODEL_INFO = {
-    # Gemini models
+    # Gemini Direct models
     "gemini-flash-latest": {
-        "note": "Dynamic endpoint - always points to the latest Flash model",
+        "note": "⭐ Dynamic endpoint - always points to the latest Flash model (auto-updates)",
         "audio_support": True,
         "tier": "standard",
         "recommended": True,
     },
     "gemini-2.5-flash": {
-        "note": "Latest generation Flash model with improved capabilities",
+        "note": "Current stable Flash model with excellent capabilities",
         "audio_support": True,
         "tier": "standard",
     },
@@ -40,43 +40,14 @@ MODEL_INFO = {
         "audio_support": True,
         "tier": "premium",
     },
-    # OpenAI models
-    "gpt-4o-audio-preview": {
-        "note": "GPT-4o with native audio understanding",
+    "gemini-3-flash-preview": {
+        "note": "Preview of next-generation Flash model",
         "audio_support": True,
         "tier": "standard",
     },
-    "gpt-4o-mini-audio-preview": {
-        "note": "Smaller, faster, more cost-effective version",
-        "audio_support": True,
-        "tier": "budget",
-        "recommended": True,
-    },
-    "gpt-audio": {
-        "note": "Dedicated audio model",
-        "audio_support": True,
-        "tier": "standard",
-    },
-    "gpt-audio-mini": {
-        "note": "Budget-friendly audio model",
-        "audio_support": True,
-        "tier": "budget",
-    },
-    # Mistral models
-    "voxtral-small-latest": {
-        "note": "Mistral's latest small audio model",
-        "audio_support": True,
-        "tier": "standard",
-        "recommended": True,
-    },
-    "voxtral-mini-latest": {
-        "note": "Compact model optimized for efficiency",
-        "audio_support": True,
-        "tier": "budget",
-    },
-    # OpenRouter models
+    # OpenRouter models (Gemini via OpenRouter)
     "google/gemini-2.5-flash": {
-        "note": "Latest Gemini Flash via OpenRouter",
+        "note": "Gemini 2.5 Flash via OpenRouter",
         "audio_support": True,
         "tier": "standard",
         "recommended": True,
@@ -96,13 +67,8 @@ MODEL_INFO = {
         "audio_support": True,
         "tier": "budget",
     },
-    "openai/gpt-4o-audio-preview": {
-        "note": "GPT-4o with audio via OpenRouter",
-        "audio_support": True,
-        "tier": "premium",
-    },
-    "mistralai/voxtral-small-24b-2507": {
-        "note": "Voxtral Small 24B via OpenRouter",
+    "google/gemini-3-flash-preview": {
+        "note": "Preview of Gemini 3 Flash via OpenRouter",
         "audio_support": True,
         "tier": "standard",
     },
@@ -140,12 +106,29 @@ class ModelsWidget(QWidget):
         container_layout.addWidget(title)
 
         intro = QLabel(
-            "Voice Notepad supports multimodal AI models that can process audio directly. "
-            "Select your preferred provider and model in the Record tab."
+            "Voice Notepad uses Gemini models exclusively for audio transcription. "
+            "The recommended setup is <b>Gemini Direct</b> with the <b>gemini-flash-latest</b> endpoint."
         )
         intro.setWordWrap(True)
         intro.setStyleSheet("color: #666; font-size: 11px;")
         container_layout.addWidget(intro)
+
+        # Rationale box
+        rationale = QLabel(
+            "<b>Why Gemini Flash Latest?</b><br>"
+            "After extensive testing (~1000 transcriptions), the Flash models have proven highly "
+            "cost-effective for voice transcription workloads—typically just a few dollars for "
+            "heavy usage. The dynamic 'gemini-flash-latest' endpoint automatically points to "
+            "Google's latest Flash model, eliminating the need for manual updates when new "
+            "versions are released. This endpoint is only available through the direct Gemini API, "
+            "not through OpenRouter."
+        )
+        rationale.setWordWrap(True)
+        rationale.setStyleSheet(
+            "background-color: #e7f5ff; border: 1px solid #74c0fc; "
+            "border-radius: 4px; padding: 10px; font-size: 11px; color: #1971c2; margin: 8px 0;"
+        )
+        container_layout.addWidget(rationale)
 
         # Tier legend (horizontal)
         legend_widget = QWidget()
@@ -206,59 +189,36 @@ class ModelsWidget(QWidget):
         icons_dir = Path(__file__).parent / "icons"
 
         # Add provider tabs with icons
-        # OpenRouter
+        # Gemini Direct (recommended - first tab)
+        gemini_tab_idx = tabs.addTab(
+            self._create_provider_tab(
+                GEMINI_MODELS,
+                "https://ai.google.dev/gemini-api/docs/models",
+                "⭐ <b>Recommended:</b> Direct access to Google's Gemini models. "
+                "The 'gemini-flash-latest' endpoint automatically updates to the latest Flash model, "
+                "eliminating manual version management. Best for users who want the latest model "
+                "without configuration changes."
+            ),
+            "Gemini Direct ⭐"
+        )
+        gemini_icon_path = icons_dir / "gemini_icon.png"
+        if gemini_icon_path.exists():
+            tabs.setTabIcon(gemini_tab_idx, QIcon(str(gemini_icon_path)))
+
+        # OpenRouter (alternative)
         or_tab_idx = tabs.addTab(
             self._create_provider_tab(
                 OPENROUTER_MODELS,
                 "https://openrouter.ai/models?fmt=cards&input_modalities=audio",
-                "Unified API for multiple providers. Access Gemini, GPT-4o, and Voxtral "
-                "through a single API key. Flexible model switching without changing providers."
+                "Alternative access to Gemini models via OpenRouter's OpenAI-compatible API. "
+                "Useful if you already have an OpenRouter account. Note: The dynamic "
+                "'gemini-flash-latest' endpoint is not available through OpenRouter."
             ),
             "OpenRouter"
         )
         or_icon_path = icons_dir / "or_icon.png"
         if or_icon_path.exists():
             tabs.setTabIcon(or_tab_idx, QIcon(str(or_icon_path)))
-
-        # Gemini
-        gemini_tab_idx = tabs.addTab(
-            self._create_provider_tab(
-                GEMINI_MODELS,
-                "https://ai.google.dev/gemini-api/docs/models",
-                "Multimodal models with native audio support. 'gemini-flash-latest' is a dynamic "
-                "endpoint that always points to Google's latest Flash model."
-            ),
-            "Gemini"
-        )
-        gemini_icon_path = icons_dir / "gemini_icon.png"
-        if gemini_icon_path.exists():
-            tabs.setTabIcon(gemini_tab_idx, QIcon(str(gemini_icon_path)))
-
-        # OpenAI
-        openai_tab_idx = tabs.addTab(
-            self._create_provider_tab(
-                OPENAI_MODELS,
-                "https://platform.openai.com/docs/models",
-                "GPT models with audio understanding capabilities via the Chat Completions API."
-            ),
-            "OpenAI"
-        )
-        openai_icon_path = icons_dir / "openai_icon.png"
-        if openai_icon_path.exists():
-            tabs.setTabIcon(openai_tab_idx, QIcon(str(openai_icon_path)))
-
-        # Mistral
-        mistral_tab_idx = tabs.addTab(
-            self._create_provider_tab(
-                MISTRAL_MODELS,
-                "https://docs.mistral.ai/capabilities/audio/",
-                "Voxtral models designed for audio transcription and understanding."
-            ),
-            "Mistral"
-        )
-        mistral_icon_path = icons_dir / "mistral_icon.png"
-        if mistral_icon_path.exists():
-            tabs.setTabIcon(mistral_tab_idx, QIcon(str(mistral_icon_path)))
 
         container_layout.addWidget(tabs)
 

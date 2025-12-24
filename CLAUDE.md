@@ -6,7 +6,9 @@ Voice Notepad V3 is a PyQt6 desktop application for voice recording with AI-powe
 
 ## Core Concept
 
-Instead of separate speech-to-text followed by text cleanup, this app sends audio directly to multimodal models (via OpenRouter, Gemini, OpenAI GPT-4o, or Mistral Voxtral) along with a cleanup prompt. The model handles both transcription and text cleanup simultaneously.
+Instead of separate speech-to-text followed by text cleanup, this app sends audio directly to Google's Gemini multimodal models along with a cleanup prompt. The model handles both transcription and text cleanup simultaneously.
+
+**Why Gemini?** After extensive testing (~1000 transcriptions), Gemini Flash models have proven highly cost-effective for voice transcription—typically just a few dollars for heavy usage. The recommended `gemini-flash-latest` endpoint automatically points to Google's latest Flash model, eliminating manual updates.
 
 ## Architecture
 
@@ -37,7 +39,7 @@ Voice-Notepad-V3/
 - `main.py` - Main PyQt6 application window and UI (tabbed interface)
 - `audio_recorder.py` - Audio recording with PyAudio
 - `audio_processor.py` - Audio compression and Opus archival
-- `transcription.py` - API clients for OpenRouter, Gemini, OpenAI, and Mistral
+- `transcription.py` - API clients for Gemini (direct) and OpenRouter
 - `markdown_widget.py` - Markdown rendering widget
 - `config.py` - Configuration management (API keys, models, settings)
 - `hotkeys.py` - Global hotkey handling using pynput
@@ -98,14 +100,12 @@ The app supports global hotkeys that work system-wide, even when the window is m
 
 | Provider | Models | API Endpoint |
 |----------|--------|--------------|
-| **OpenRouter** (Default) | `google/gemini-2.5-flash`, `google/gemini-2.5-flash-lite`, `google/gemini-2.0-flash-001`, `openai/gpt-4o-audio-preview`, `mistralai/voxtral-small-24b-2507` | OpenRouter |
-| Gemini | `gemini-flash-latest`*, `gemini-2.5-flash`, `gemini-2.5-flash-lite`, `gemini-2.5-pro` | Google AI |
-| OpenAI | `gpt-4o-audio-preview`, `gpt-4o-mini-audio-preview`, `gpt-audio`, `gpt-audio-mini` | OpenAI |
-| Mistral | `voxtral-small-latest`, `voxtral-mini-latest` | Mistral AI |
+| **Gemini Direct** (Recommended) | `gemini-flash-latest`*, `gemini-2.5-flash`, `gemini-2.5-flash-lite`, `gemini-2.5-pro` | Google AI |
+| OpenRouter | `google/gemini-2.5-flash`, `google/gemini-2.5-flash-lite`, `google/gemini-2.0-flash-001` | OpenRouter |
 
-**OpenRouter** is the recommended provider - it provides access to multiple models through a single API key, making it easy to switch between Gemini, GPT-4o, and Voxtral models.
+**Gemini Direct** is the recommended provider because it supports the dynamic `gemini-flash-latest` endpoint, which always points to Google's latest Flash model automatically. This eliminates the need for manual model updates.
 
-*`gemini-flash-latest` is a dynamic endpoint that always points to Google's latest Flash model.
+*`gemini-flash-latest` is only available through the direct Gemini API, not through OpenRouter.
 
 ## Development Guidelines
 
@@ -120,10 +120,8 @@ This creates the venv in `app/.venv` if needed and launches the app.
 
 Required in `.env` or system environment (only need the key for your chosen provider):
 ```
-OPENROUTER_API_KEY=your_key  # Recommended - access multiple models
-GEMINI_API_KEY=your_key
-OPENAI_API_KEY=your_key
-MISTRAL_API_KEY=your_key
+GEMINI_API_KEY=your_key      # Recommended - supports gemini-flash-latest
+OPENROUTER_API_KEY=your_key  # Alternative - access via OpenAI-compatible API
 ```
 
 ### The Cleanup Prompt
@@ -547,7 +545,7 @@ When modifying transcription providers:
 This means you can:
 - Start recording
 - Change your mind about the format preset (email → todo list)
-- Change the model (Gemini → GPT-4o)
+- Change the model (gemini-flash-latest → gemini-2.5-pro)
 - Adjust formality level or verbosity
 - Modify prompt checkboxes
 

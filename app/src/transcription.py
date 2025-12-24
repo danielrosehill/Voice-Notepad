@@ -1,4 +1,4 @@
-"""Transcription API clients for Gemini, OpenAI, and Mistral."""
+"""Transcription API clients for Gemini (direct) and OpenRouter."""
 
 import base64
 import tempfile
@@ -127,235 +127,6 @@ class GeminiClient(TranscriptionClient):
         # Replace spaces with underscores and remove special chars
         title = ''.join(c if c.isalnum() or c in ' -_' else '' for c in title)
         title = '_'.join(title.split())  # Replace spaces with underscores
-        return title or "untitled"
-
-
-class OpenAIClient(TranscriptionClient):
-    """OpenAI API client for audio transcription."""
-
-    def __init__(self, api_key: str, model: str = "gpt-4o-audio-preview"):
-        self.api_key = api_key
-        self.model = model
-        self._client = None
-
-    def _get_client(self):
-        if self._client is None:
-            from openai import OpenAI
-            self._client = OpenAI(api_key=self.api_key)
-        return self._client
-
-    def transcribe(self, audio_data: bytes, prompt: str) -> TranscriptionResult:
-        """Transcribe audio using OpenAI's audio capabilities."""
-        client = self._get_client()
-
-        # Encode audio as base64
-        audio_b64 = base64.b64encode(audio_data).decode("utf-8")
-
-        response = client.chat.completions.create(
-            model=self.model,
-            messages=[
-                {
-                    "role": "user",
-                    "content": [
-                        {"type": "text", "text": prompt},
-                        {
-                            "type": "input_audio",
-                            "input_audio": {
-                                "data": audio_b64,
-                                "format": "wav"
-                            }
-                        }
-                    ]
-                }
-            ]
-        )
-
-        # Extract usage data
-        input_tokens = 0
-        output_tokens = 0
-        if hasattr(response, 'usage') and response.usage:
-            input_tokens = getattr(response.usage, 'prompt_tokens', 0) or 0
-            output_tokens = getattr(response.usage, 'completion_tokens', 0) or 0
-
-        return TranscriptionResult(
-            text=response.choices[0].message.content,
-            input_tokens=input_tokens,
-            output_tokens=output_tokens
-        )
-
-    def rewrite_text(self, text: str, instruction: str) -> TranscriptionResult:
-        """Rewrite text using OpenAI (text-only, no audio)."""
-        client = self._get_client()
-
-        # Use non-audio model for text rewriting (cheaper)
-        text_model = "gpt-4o-mini" if "audio" in self.model else self.model
-
-        response = client.chat.completions.create(
-            model=text_model,
-            messages=[
-                {
-                    "role": "system",
-                    "content": instruction
-                },
-                {
-                    "role": "user",
-                    "content": text
-                }
-            ]
-        )
-
-        # Extract usage data
-        input_tokens = 0
-        output_tokens = 0
-        if hasattr(response, 'usage') and response.usage:
-            input_tokens = getattr(response.usage, 'prompt_tokens', 0) or 0
-            output_tokens = getattr(response.usage, 'completion_tokens', 0) or 0
-
-        return TranscriptionResult(
-            text=response.choices[0].message.content,
-            input_tokens=input_tokens,
-            output_tokens=output_tokens
-        )
-
-    def generate_title(self, text: str) -> str:
-        """Generate a short title using OpenAI."""
-        client = self._get_client()
-
-        # Use cheaper model for title generation
-        text_model = "gpt-4o-mini" if "audio" in self.model else self.model
-
-        prompt = (
-            "Generate a short, descriptive title for the following text. "
-            "The title should be 3-6 words, suitable for a filename (no special characters). "
-            "Respond with ONLY the title, no explanations or punctuation at the end."
-        )
-
-        response = client.chat.completions.create(
-            model=text_model,
-            messages=[
-                {"role": "system", "content": prompt},
-                {"role": "user", "content": text[:1000]}
-            ],
-            max_tokens=20
-        )
-
-        # Clean up title
-        title = response.choices[0].message.content.strip().strip('"\'.,!?')
-        title = ''.join(c if c.isalnum() or c in ' -_' else '' for c in title)
-        title = '_'.join(title.split())
-        return title or "untitled"
-
-
-class MistralClient(TranscriptionClient):
-    """Mistral API client for audio transcription using Voxtral."""
-
-    def __init__(self, api_key: str, model: str = "voxtral-mini-latest"):
-        self.api_key = api_key
-        self.model = model
-        self._client = None
-
-    def _get_client(self):
-        if self._client is None:
-            from mistralai import Mistral
-            self._client = Mistral(api_key=self.api_key)
-        return self._client
-
-    def transcribe(self, audio_data: bytes, prompt: str) -> TranscriptionResult:
-        """Transcribe audio using Mistral's Voxtral model."""
-        client = self._get_client()
-
-        # Encode audio as base64 (Voxtral expects raw base64, not data URL)
-        audio_b64 = base64.b64encode(audio_data).decode("utf-8")
-
-        response = client.chat.complete(
-            model=self.model,
-            messages=[
-                {
-                    "role": "user",
-                    "content": [
-                        {
-                            "type": "input_audio",
-                            "input_audio": audio_b64
-                        },
-                        {"type": "text", "text": prompt}
-                    ]
-                }
-            ]
-        )
-
-        # Extract usage data
-        input_tokens = 0
-        output_tokens = 0
-        if hasattr(response, 'usage') and response.usage:
-            input_tokens = getattr(response.usage, 'prompt_tokens', 0) or 0
-            output_tokens = getattr(response.usage, 'completion_tokens', 0) or 0
-
-        return TranscriptionResult(
-            text=response.choices[0].message.content,
-            input_tokens=input_tokens,
-            output_tokens=output_tokens
-        )
-
-    def rewrite_text(self, text: str, instruction: str) -> TranscriptionResult:
-        """Rewrite text using Mistral (text-only, no audio)."""
-        client = self._get_client()
-
-        # Use text-only model for rewriting (Voxtral is audio-specific)
-        text_model = "mistral-large-latest"
-
-        response = client.chat.complete(
-            model=text_model,
-            messages=[
-                {
-                    "role": "system",
-                    "content": instruction
-                },
-                {
-                    "role": "user",
-                    "content": text
-                }
-            ]
-        )
-
-        # Extract usage data
-        input_tokens = 0
-        output_tokens = 0
-        if hasattr(response, 'usage') and response.usage:
-            input_tokens = getattr(response.usage, 'prompt_tokens', 0) or 0
-            output_tokens = getattr(response.usage, 'completion_tokens', 0) or 0
-
-        return TranscriptionResult(
-            text=response.choices[0].message.content,
-            input_tokens=input_tokens,
-            output_tokens=output_tokens
-        )
-
-    def generate_title(self, text: str) -> str:
-        """Generate a short title using Mistral."""
-        client = self._get_client()
-
-        # Use text-only model
-        text_model = "mistral-large-latest"
-
-        prompt = (
-            "Generate a short, descriptive title for the following text. "
-            "The title should be 3-6 words, suitable for a filename (no special characters). "
-            "Respond with ONLY the title, no explanations or punctuation at the end."
-        )
-
-        response = client.chat.complete(
-            model=text_model,
-            messages=[
-                {"role": "system", "content": prompt},
-                {"role": "user", "content": text[:1000]}
-            ],
-            max_tokens=20
-        )
-
-        # Clean up title
-        title = response.choices[0].message.content.strip().strip('"\'.,!?')
-        title = ''.join(c if c.isalnum() or c in ' -_' else '' for c in title)
-        title = '_'.join(title.split())
         return title or "untitled"
 
 
@@ -522,14 +293,15 @@ class OpenRouterClient(TranscriptionClient):
 
 
 def get_client(provider: str, api_key: str, model: str) -> TranscriptionClient:
-    """Factory function to get appropriate transcription client."""
-    if provider == "openrouter":
-        return OpenRouterClient(api_key, model)
-    elif provider == "gemini":
+    """Factory function to get appropriate transcription client.
+
+    Supported providers:
+    - "gemini": Direct Google Gemini API (recommended for gemini-flash-latest)
+    - "openrouter": OpenRouter API (access to Gemini models via OpenAI-compatible API)
+    """
+    if provider == "gemini":
         return GeminiClient(api_key, model)
-    elif provider == "openai":
-        return OpenAIClient(api_key, model)
-    elif provider == "mistral":
-        return MistralClient(api_key, model)
+    elif provider == "openrouter":
+        return OpenRouterClient(api_key, model)
     else:
-        raise ValueError(f"Unknown provider: {provider}")
+        raise ValueError(f"Unknown provider: {provider}. Supported: gemini, openrouter")

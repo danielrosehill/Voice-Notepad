@@ -16,20 +16,18 @@ from PyQt6.QtCore import Qt
 from PyQt6.QtGui import QFont
 
 from .database_mongo import get_db
-from .config import GEMINI_MODELS, OPENAI_MODELS, MISTRAL_MODELS, OPENROUTER_MODELS
+from .config import GEMINI_MODELS, OPENROUTER_MODELS
 
 
 # Build a lookup dict from model_id -> display_name
 MODEL_DISPLAY_NAMES = {}
-for model_id, display_name in GEMINI_MODELS + OPENAI_MODELS + MISTRAL_MODELS + OPENROUTER_MODELS:
+for model_id, display_name in GEMINI_MODELS + OPENROUTER_MODELS:
     MODEL_DISPLAY_NAMES[model_id] = display_name
 
 # Provider display names
 PROVIDER_DISPLAY_NAMES = {
-    "openrouter": "Open Router",
-    "gemini": "Google",
-    "openai": "OpenAI",
-    "mistral": "Mistral",
+    "gemini": "Google Gemini",
+    "openrouter": "OpenRouter",
 }
 
 

@@ -15,7 +15,7 @@ This transcription utility has takes a different approach by using an audio mult
 
  During the first fortnight of using this app I've validated it to be both highly effective and cost-efficient: API costs of just a few dollars for almost 1,000 very useful transcriptions!
 
-Gemini is available in this app through the Google Gemini API as well as OpenRouter. Additionally, there’s support for Voxtral and OpenAI models.
+Gemini is available through the Google Gemini API (recommended for the dynamic `gemini-flash-latest` endpoint) or via OpenRouter.
 
 ![alt text](screenshots/manual/4.png)
 
@@ -27,13 +27,9 @@ This matters because the AI "hears" your tone, pauses, and emphasis rather than 
 
 ## Supported Providers
 
-**OpenRouter** (recommended) provides access to multiple models through a single API key with accurate per-key cost tracking. Available models include Gemini 2.5 Flash, GPT-4o Audio Preview, and Voxtral Small.
+**Google Gemini** (recommended) offers direct access to Gemini models including the dynamic `gemini-flash-latest` endpoint. This endpoint always points to Google's latest Flash model, eliminating the need for manual updates when new versions are released. Available models: Gemini Flash Latest, Gemini 2.5 Flash, Gemini 2.5 Flash Lite, and Gemini 2.5 Pro.
 
-**Google AI** (direct) offers Gemini Flash Latest, Gemini 2.5 Flash, Gemini 2.5 Flash Lite, and Gemini 2.5 Pro.
-
-**OpenAI** (direct) provides GPT-4o Audio Preview and GPT-4o Mini Audio Preview.
-
-**Mistral AI** (direct) offers Voxtral Small Latest and Voxtral Mini Latest.
+**OpenRouter** provides access to Gemini models through an OpenAI-compatible API with accurate per-key cost tracking. Note: The dynamic `gemini-flash-latest` endpoint is not available through OpenRouter.
 
 ## Features
 
@@ -175,10 +171,8 @@ Run `./build.sh` with no arguments to see all available commands.
 Add your API key via Settings in the app, or set environment variables:
 
 ```bash
-OPENROUTER_API_KEY=your_key  # Recommended
-GEMINI_API_KEY=your_key
-OPENAI_API_KEY=your_key
-MISTRAL_API_KEY=your_key
+GEMINI_API_KEY=your_key      # Recommended - supports gemini-flash-latest
+OPENROUTER_API_KEY=your_key  # Alternative - access via OpenAI-compatible API
 ```
 
 ## Quick Start

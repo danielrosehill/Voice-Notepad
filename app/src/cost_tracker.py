@@ -20,17 +20,12 @@ MODEL_PRICING = {
     "gemini-2.5-flash-lite": {"input": 0.02, "output": 0.10},
     "gemini-2.5-pro": {"input": 1.25, "output": 5.00},
     "gemini-3-flash-preview": {"input": 0.10, "output": 0.40},  # Preview pricing estimate
-
-    # OpenAI audio models - audio tokens have specific pricing
-    # GPT-4o audio: $100/M audio input tokens, $200/M audio output tokens
-    "gpt-4o-audio-preview": {"input": 2.50, "output": 10.00},  # text pricing, audio is higher
-    "gpt-4o-mini-audio-preview": {"input": 0.15, "output": 0.60},
-    "gpt-audio": {"input": 2.50, "output": 10.00},
-    "gpt-audio-mini": {"input": 0.15, "output": 0.60},
-
-    # Mistral Voxtral - pricing per million tokens
-    "voxtral-small-latest": {"input": 0.10, "output": 0.30},
-    "voxtral-mini-latest": {"input": 0.04, "output": 0.12},
+    # OpenRouter Gemini models (same pricing)
+    "google/gemini-2.5-flash": {"input": 0.075, "output": 0.30},
+    "google/gemini-2.5-flash-lite": {"input": 0.02, "output": 0.10},
+    "google/gemini-2.0-flash-001": {"input": 0.075, "output": 0.30},
+    "google/gemini-2.0-flash-lite-001": {"input": 0.02, "output": 0.10},
+    "google/gemini-3-flash-preview": {"input": 0.10, "output": 0.40},
 }
 
 

@@ -50,7 +50,7 @@ from PyQt6.QtWidgets import QCompleter
 
 from .config import (
     Config, load_config, save_config, load_env_keys, CONFIG_DIR,
-    GEMINI_MODELS, OPENAI_MODELS, MISTRAL_MODELS, OPENROUTER_MODELS,
+    GEMINI_MODELS, OPENROUTER_MODELS,
     MODEL_TIERS, build_cleanup_prompt,
     FORMAT_TEMPLATES, FORMAT_DISPLAY_NAMES, FORMALITY_DISPLAY_NAMES, VERBOSITY_DISPLAY_NAMES, EMAIL_SIGNOFFS,
 )
@@ -302,11 +302,8 @@ class MainWindow(QMainWindow):
         icons_dir = Path(__file__).parent / "icons"
         icon_map = {
             "openrouter": "or_icon.png",
-            "open router": "or_icon.png",
             "gemini": "gemini_icon.png",
             "google": "gemini_icon.png",
-            "openai": "openai_icon.png",
-            "mistral": "mistral_icon.png",
         }
         icon_filename = icon_map.get(provider.lower(), "")
         if icon_filename:
@@ -316,17 +313,13 @@ class MainWindow(QMainWindow):
         return QIcon()  # Return empty icon if not found
 
     def _get_model_icon(self, model_id: str) -> QIcon:
-        """Get the icon for a model based on its originator (not inference provider)."""
+        """Get the icon for a model based on its originator."""
         icons_dir = Path(__file__).parent / "icons"
         model_lower = model_id.lower()
 
-        # Determine model originator from model ID
+        # All models are now Gemini-based
         if model_lower.startswith("google/") or model_lower.startswith("gemini"):
             icon_filename = "gemini_icon.png"
-        elif model_lower.startswith("openai/") or model_lower.startswith("gpt"):
-            icon_filename = "openai_icon.png"
-        elif model_lower.startswith("mistralai/") or model_lower.startswith("voxtral"):
-            icon_filename = "mistral_icon.png"
         else:
             return QIcon()  # No icon for unknown models
 
@@ -1437,18 +1430,12 @@ class MainWindow(QMainWindow):
 
         # Get API key for selected provider
         provider = self.config.selected_provider
-        if provider == "openrouter":
-            api_key = self.config.openrouter_api_key
-            model = self.config.openrouter_model
-        elif provider == "gemini":
+        if provider == "gemini":
             api_key = self.config.gemini_api_key
             model = self.config.gemini_model
-        elif provider == "openai":
-            api_key = self.config.openai_api_key
-            model = self.config.openai_model
-        else:
-            api_key = self.config.mistral_api_key
-            model = self.config.mistral_model
+        else:  # openrouter
+            api_key = self.config.openrouter_api_key
+            model = self.config.openrouter_model
 
         if not api_key:
             QMessageBox.warning(
@@ -1545,18 +1532,12 @@ class MainWindow(QMainWindow):
 
         # Get API key for selected provider
         provider = self.config.selected_provider
-        if provider == "openrouter":
-            api_key = self.config.openrouter_api_key
-            model = self.config.openrouter_model
-        elif provider == "gemini":
+        if provider == "gemini":
             api_key = self.config.gemini_api_key
             model = self.config.gemini_model
-        elif provider == "openai":
-            api_key = self.config.openai_api_key
-            model = self.config.openai_model
-        else:
-            api_key = self.config.mistral_api_key
-            model = self.config.mistral_model
+        else:  # openrouter
+            api_key = self.config.openrouter_api_key
+            model = self.config.openrouter_model
 
         if not api_key:
             QMessageBox.warning(
@@ -1620,14 +1601,10 @@ class MainWindow(QMainWindow):
 
         # Get provider/model info
         provider = self.config.selected_provider
-        if provider == "openrouter":
-            model = self.config.openrouter_model
-        elif provider == "gemini":
+        if provider == "gemini":
             model = self.config.gemini_model
-        elif provider == "openai":
-            model = self.config.openai_model
-        else:
-            model = self.config.mistral_model
+        else:  # openrouter
+            model = self.config.openrouter_model
 
         # Determine cost: use actual cost from OpenRouter, or estimate for others
         final_cost = 0.0
@@ -1876,14 +1853,10 @@ class MainWindow(QMainWindow):
             Tuple of (provider, model).
         """
         provider = self.config.selected_provider
-        if provider == "openrouter":
-            model = self.config.openrouter_model
-        elif provider == "gemini":
+        if provider == "gemini":
             model = self.config.gemini_model
-        elif provider == "openai":
-            model = self.config.openai_model
-        elif provider == "mistral":
-            model = self.config.mistral_model
+        elif provider == "openrouter":
+            model = self.config.openrouter_model
         else:
             model = "unknown"
         return (provider, model)
@@ -2042,18 +2015,12 @@ class MainWindow(QMainWindow):
 
         # Get API key for selected provider
         provider = self.config.selected_provider
-        if provider == "openrouter":
-            api_key = self.config.openrouter_api_key
-            model = self.config.openrouter_model
-        elif provider == "gemini":
+        if provider == "gemini":
             api_key = self.config.gemini_api_key
             model = self.config.gemini_model
-        elif provider == "openai":
-            api_key = self.config.openai_api_key
-            model = self.config.openai_model
-        else:
-            api_key = self.config.mistral_api_key
-            model = self.config.mistral_model
+        else:  # openrouter
+            api_key = self.config.openrouter_api_key
+            model = self.config.openrouter_model
 
         if not api_key:
             QMessageBox.warning(
@@ -2089,14 +2056,10 @@ class MainWindow(QMainWindow):
 
         # Update cost tracking
         provider = self.config.selected_provider
-        if provider == "openrouter":
-            model = self.config.openrouter_model
-        elif provider == "gemini":
+        if provider == "gemini":
             model = self.config.gemini_model
-        elif provider == "openai":
-            model = self.config.openai_model
-        else:
-            model = self.config.mistral_model
+        else:  # openrouter
+            model = self.config.openrouter_model
 
         # Determine cost
         final_cost = 0.0

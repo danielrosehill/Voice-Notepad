@@ -306,10 +306,8 @@ class AboutWidget(QWidget):
         providers_layout = QVBoxLayout(providers_group)
 
         providers = [
-            "OpenRouter (Recommended) - Access multiple models via single API",
-            "Gemini (Google) - gemini-2.0-flash-lite, gemini-flash-latest",
-            "OpenAI - gpt-4o-audio-preview",
-            "Mistral - voxtral-mini-latest",
+            "Google Gemini (Recommended) - gemini-flash-latest, gemini-2.5-flash, gemini-2.5-pro",
+            "OpenRouter - Access Gemini models via OpenAI-compatible API",
         ]
         for p in providers:
             p_label = QLabel(p)
