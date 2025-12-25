@@ -2189,7 +2189,7 @@ class MainWindow(QMainWindow):
         Requires the user to be in the 'input' group for /dev/uinput access.
         Falls back to ydotool if python-evdev is unavailable.
         """
-        from text_injection import paste_clipboard_with_fallback
+        from .text_injection import paste_clipboard_with_fallback
         paste_clipboard_with_fallback(delay_before=0.1)
 
     def copy_to_clipboard(self):
