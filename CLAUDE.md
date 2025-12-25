@@ -18,17 +18,20 @@ Instead of separate speech-to-text followed by text cleanup, this app sends audi
 Voice-Notepad-V3/
 ├── app/                    # Application code
 │   ├── src/               # Python source files
+│   ├── assets/            # Static assets
+│   │   └── tts/           # Pre-generated TTS audio files
 │   └── requirements.txt   # Python dependencies
 ├── planning/              # Planning notes and API docs
 ├── scripts/
-│   └── build/             # Build scripts
-│       ├── deb.sh         # Build .deb package
-│       ├── appimage.sh    # Build AppImage
-│       ├── tarball.sh     # Build portable tarball
-│       ├── all.sh         # Build all formats
-│       ├── install.sh     # Install .deb from dist/
-│       ├── release.sh     # Version bump + screenshots + build
-│       └── screenshots.sh # Take release screenshots
+│   ├── build/             # Build scripts
+│   │   ├── deb.sh         # Build .deb package
+│   │   ├── appimage.sh    # Build AppImage
+│   │   ├── tarball.sh     # Build portable tarball
+│   │   ├── all.sh         # Build all formats
+│   │   ├── install.sh     # Install .deb from dist/
+│   │   ├── release.sh     # Version bump + screenshots + build
+│   │   └── screenshots.sh # Take release screenshots
+│   └── generate_tts_assets.sh  # Generate TTS audio files
 ├── build.sh               # Master build entry point
 ├── run.sh                 # Run for development
 └── dist/                  # Built packages (gitignored)
@@ -52,6 +55,7 @@ Voice-Notepad-V3/
 - `models_widget.py` - Models tab showing available AI models by provider
 - `about_widget.py` - About tab with app info and keyboard shortcuts
 - `audio_feedback.py` - Audio beep notifications for recording start/stop
+- `tts_announcer.py` - TTS accessibility announcements (pre-generated voice)
 
 ### Configuration
 
@@ -281,6 +285,7 @@ AGC_MAX_GAIN_DB = 20.0        # Maximum boost to apply
 - [x] **Prompt Stacks**: Layered prompt system for complex workflows (meeting notes + action items, technical docs, etc.)
 - [x] **Dev mode indicator**: Development version shows "(DEV)" in window title for visual distinction
 - [x] **Short audio optimization**: Minimal prompt for recordings < 30s (reduces API overhead by ~93%)
+- [x] **TTS accessibility announcements**: Optional spoken status announcements (Recording, Stopped, Complete, etc.)
 
 ### Planned
 
@@ -493,6 +498,35 @@ Prompt Stacks allow you to layer multiple AI instructions for complex transcript
 
 - `prompt_stack_widget.py` - Prompt Stacks tab UI
 - `prompt_elements.py` - Prompt building utilities
+
+## TTS Accessibility Announcements
+
+Optional spoken status announcements for accessibility. When enabled (Settings → Behavior → TTS announcements), the app speaks status changes aloud using pre-generated voice files.
+
+**Announcements:**
+| Event | Message |
+|-------|---------|
+| Recording started | "Recording" |
+| Recording stopped | "Stopped" |
+| Audio cached (append mode) | "Cached" |
+| Transcription started | "Transcribing" |
+| Transcription complete | "Complete" |
+| Text copied to clipboard | "Copied" |
+| Text injected at cursor | "Injected" |
+| Recording cleared | "Cleared" |
+| Error occurred | "Error" |
+
+**Technical details:**
+- Voice: British English male (en-GB-RyanNeural via Edge TTS)
+- Audio files: Pre-generated WAV files (~475KB total) in `app/assets/tts/`
+- Respects Quiet Mode setting (disabled when Quiet Mode is on)
+- Uses same audio playback system as beep notifications
+
+**Regenerating assets:**
+```bash
+./scripts/generate_tts_assets.sh
+```
+Requires `edge-tts` package (`pip install edge-tts`).
 
 ## Voice Activity Detection (VAD)
 

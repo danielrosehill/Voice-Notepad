@@ -106,6 +106,7 @@ fi
 # Copy source files
 echo "Copying application files..."
 cp -r app/src "$INSTALL_DIR/opt/voice-notepad/"
+cp -r app/assets "$INSTALL_DIR/opt/voice-notepad/"
 cp app/requirements.txt "$INSTALL_DIR/opt/voice-notepad/"
 
 # Fix permissions for all installed files

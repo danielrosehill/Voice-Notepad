@@ -255,6 +255,17 @@ class BehaviorWidget(QWidget):
         beep_clipboard_layout.addWidget(beep_clipboard_help)
         form.addRow("Beep on output:", beep_clipboard_layout)
 
+        # TTS Announcements (accessibility)
+        tts_layout = QVBoxLayout()
+        self.tts_enabled = QCheckBox()
+        self.tts_enabled.setChecked(self.config.tts_announcements_enabled)
+        self.tts_enabled.toggled.connect(lambda v: self._save_bool("tts_announcements_enabled", v))
+        tts_layout.addWidget(self.tts_enabled)
+        tts_help = QLabel("Speaks status changes aloud (Recording, Stopped, Complete, etc.)")
+        tts_help.setStyleSheet("color: #666; font-size: 10px;")
+        tts_layout.addWidget(tts_help)
+        form.addRow("TTS announcements:", tts_layout)
+
         # Note: Output mode (App Only / Clipboard / Inject) is now on the main recording page
 
         # Append position (where to insert text in append mode)

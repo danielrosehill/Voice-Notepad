@@ -150,6 +150,9 @@ class Config:
     beep_on_clipboard: bool = True  # Play beep when text copied/injected
     quiet_mode: bool = False  # Suppress all beeps (overrides above settings when True)
 
+    # Accessibility TTS announcements
+    tts_announcements_enabled: bool = False  # Speak status changes aloud (accessibility)
+
     # Output modes: where transcribed text is sent (can combine multiple)
     # These are independent toggles - any combination is valid
     output_to_app: bool = True       # Show text in app UI

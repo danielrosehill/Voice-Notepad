@@ -89,6 +89,7 @@ fi
 # Copy source files
 echo "Copying application files..."
 cp -r app/src "$APPDIR/opt/voice-notepad/"
+cp -r app/assets "$APPDIR/opt/voice-notepad/"
 cp app/requirements.txt "$APPDIR/opt/voice-notepad/"
 
 # Create the main executable script

@@ -66,6 +66,7 @@ fi
 # Copy source files
 echo "Copying application files..."
 cp -r app/src "$PKG_DIR/"
+cp -r app/assets "$PKG_DIR/"
 cp app/requirements.txt "$PKG_DIR/"
 
 # Create run script

@@ -76,6 +76,7 @@ from .analytics_widget import AnalyticsDialog
 from .settings_widget import SettingsDialog
 from .about_widget import AboutDialog
 from .audio_feedback import get_feedback
+from .tts_announcer import get_announcer
 from .file_transcription_widget import FileTranscriptionWidget
 from .mic_naming_ai import MicrophoneNamingAI
 from .prompt_library import PromptLibrary, build_prompt_from_config
@@ -1670,6 +1671,10 @@ class MainWindow(QMainWindow):
             feedback.enabled = self.config.beep_on_record and not self.config.quiet_mode
             feedback.play_start_beep()
 
+            # TTS announcement (accessibility)
+            if self.config.tts_announcements_enabled and not self.config.quiet_mode:
+                get_announcer().announce_recording()
+
             self.recorder.start_recording()
             self.record_btn.setText("●")
             self.record_btn.setStyleSheet(self._record_btn_recording_style)
@@ -1709,6 +1714,13 @@ class MainWindow(QMainWindow):
         feedback = get_feedback()
         feedback.enabled = self.config.beep_on_record and not self.config.quiet_mode
         feedback.play_stop_beep()
+
+        # TTS announcement (accessibility) - announce "Cached" for append mode, "Stopped" otherwise
+        if self.config.tts_announcements_enabled and not self.config.quiet_mode:
+            if self.append_mode or self.accumulated_segments:
+                get_announcer().announce_cached()
+            else:
+                get_announcer().announce_stopped()
 
         self.timer.stop()
         audio_data = self.recorder.stop_recording()
@@ -1827,6 +1839,10 @@ class MainWindow(QMainWindow):
         self.worker.vad_complete.connect(self.on_vad_complete)
         self.worker.start()
 
+        # TTS announcement (accessibility)
+        if self.config.tts_announcements_enabled and not self.config.quiet_mode:
+            get_announcer().announce_transcribing()
+
     def _update_segment_indicator(self):
         """Update the segment count display."""
         count = len(self.accumulated_segments)
@@ -1933,6 +1949,10 @@ class MainWindow(QMainWindow):
         self.worker.status.connect(self.on_worker_status)
         self.worker.vad_complete.connect(self.on_vad_complete)
         self.worker.start()
+
+        # TTS announcement (accessibility)
+        if self.config.tts_announcements_enabled and not self.config.quiet_mode:
+            get_announcer().announce_transcribing()
 
     def on_worker_status(self, status: str):
         """Handle worker status updates."""
@@ -2058,6 +2078,16 @@ class MainWindow(QMainWindow):
             feedback.enabled = self.config.beep_on_clipboard and not self.config.quiet_mode
             feedback.play_clipboard_beep()
 
+        # TTS announcements (accessibility)
+        if self.config.tts_announcements_enabled and not self.config.quiet_mode:
+            announcer = get_announcer()
+            if did_inject:
+                announcer.announce_injected()
+            elif did_clipboard:
+                announcer.announce_copied()
+            else:
+                announcer.announce_complete()
+
         self.reset_ui()
 
         # Enable append button if app mode is enabled (text is visible)
@@ -2078,6 +2108,10 @@ class MainWindow(QMainWindow):
 
     def on_transcription_error(self, error: str):
         """Handle transcription error."""
+        # TTS announcement (accessibility)
+        if self.config.tts_announcements_enabled and not self.config.quiet_mode:
+            get_announcer().announce_error()
+
         QMessageBox.critical(self, "Transcription Error", error)
         self.reset_ui()
         self._set_tray_state('idle')
@@ -2242,6 +2276,10 @@ class MainWindow(QMainWindow):
             feedback = get_feedback()
             feedback.enabled = self.config.beep_on_record and not self.config.quiet_mode
             feedback.play_stop_beep()
+
+        # TTS announcement (accessibility)
+        if self.config.tts_announcements_enabled and not self.config.quiet_mode:
+            get_announcer().announce_cleared()
 
         self.timer.stop()
         if self.recorder.is_recording or self.recorder.is_paused:
