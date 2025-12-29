@@ -274,6 +274,7 @@ class MainWindow(QMainWindow):
         self.accumulated_duration: float = 0.0
         self.append_mode: bool = False  # Track if next transcription should append
         self.has_cached_audio: bool = False  # Track if we have stopped audio waiting to be transcribed
+        self.has_failed_audio: bool = False  # Track if we have audio from a failed transcription (for retry)
 
         # Initialize unified prompt library
         self.prompt_library = PromptLibrary(CONFIG_DIR)
@@ -284,7 +285,7 @@ class MainWindow(QMainWindow):
         if os.environ.get("VOICE_NOTEPAD_DEV_MODE") == "1":
             title += " (DEV)"
         self.setWindowTitle(title)
-        self.setMinimumSize(620, 700)
+        self.setMinimumSize(900, 850)
         self.resize(self.config.window_width, self.config.window_height)
 
         self.setup_ui()
@@ -350,18 +351,25 @@ class MainWindow(QMainWindow):
             QSystemTrayIcon.MessageIcon.Warning,
             3000,
         )
-        # Reset UI but keep any recorded audio
+        # Reset UI but keep any recorded audio or failed audio
         self.record_btn.setText("●")
         self.record_btn.setStyleSheet(self._record_btn_idle_style)
         self.record_btn.setEnabled(True)
         self.pause_btn.setEnabled(False)
-        # Keep transcribe enabled if we have cached audio
+        # Keep transcribe enabled if we have cached audio or failed audio
         if self.accumulated_segments:
             self.has_cached_audio = True
             self.stop_btn.setEnabled(False)
             self.transcribe_btn.setEnabled(True)
             self.transcribe_btn.setStyleSheet(self._transcribe_btn_idle_style)  # Green when cached
             self.append_btn.setEnabled(True)
+            self.delete_btn.setEnabled(True)
+        elif self.has_failed_audio:
+            # Keep retry UI state
+            self.stop_btn.setEnabled(False)
+            self.transcribe_btn.setEnabled(True)
+            self.transcribe_btn.setStyleSheet(self._transcribe_btn_idle_style)
+            self.append_btn.setEnabled(False)
             self.delete_btn.setEnabled(True)
         else:
             self.has_cached_audio = False
@@ -907,21 +915,6 @@ class MainWindow(QMainWindow):
 
         layout.addLayout(presets_section_layout)
 
-        # Quick toggles row (Quiet Mode)
-        toggles_layout = QHBoxLayout()
-        toggles_layout.setSpacing(20)
-
-        self.quiet_mode_checkbox = QCheckBox("🔇 Quiet Mode")
-        self.quiet_mode_checkbox.setChecked(self.config.quiet_mode)
-        self.quiet_mode_checkbox.setToolTip("Suppress all audio beeps")
-        self.quiet_mode_checkbox.toggled.connect(self._on_quiet_mode_changed)
-        toggles_layout.addWidget(self.quiet_mode_checkbox)
-
-        # Note: Output mode (App Only / Clipboard / Inject) is in the control bar
-
-        toggles_layout.addStretch()
-        layout.addLayout(toggles_layout)
-
         # Text output area with markdown rendering
         self.text_output = MarkdownTextWidget()
         self.text_output.setPlaceholderText("Transcription will appear here...")
@@ -940,66 +933,6 @@ class MainWindow(QMainWindow):
         bottom = QHBoxLayout()
         bottom.setSpacing(12)  # Increased spacing between buttons
 
-        self.clear_btn = QPushButton("Clear")
-        self.clear_btn.setMinimumHeight(38)
-        self.clear_btn.setMinimumWidth(100)
-        self.clear_btn.clicked.connect(self.clear_transcription)
-        bottom.addWidget(self.clear_btn)
-
-        self.rewrite_btn = QPushButton("✍️ Rewrite")
-        self.rewrite_btn.setMinimumHeight(38)
-        self.rewrite_btn.setMinimumWidth(120)
-        self.rewrite_btn.setEnabled(False)  # Disabled until we have text
-        self.rewrite_btn.setToolTip(
-            "Send the transcript back to the AI with custom instructions to rewrite it"
-        )
-        self.rewrite_btn.setStyleSheet("""
-            QPushButton {
-                background-color: #17a2b8;
-                color: white;
-                border: none;
-                border-radius: 4px;
-                font-weight: bold;
-                font-size: 13px;
-            }
-            QPushButton:hover {
-                background-color: #138496;
-            }
-            QPushButton:disabled {
-                background-color: #6c757d;
-                color: #aaa;
-            }
-        """)
-        self.rewrite_btn.clicked.connect(self.rewrite_transcript)
-        bottom.addWidget(self.rewrite_btn)
-
-        self.download_btn = QPushButton("⬇ Download")
-        self.download_btn.setMinimumHeight(38)
-        self.download_btn.setMinimumWidth(130)
-        self.download_btn.setEnabled(False)  # Disabled until we have text
-        self.download_btn.setToolTip(
-            "Download the transcript with an AI-generated filename"
-        )
-        self.download_btn.setStyleSheet("""
-            QPushButton {
-                background-color: #28a745;
-                color: white;
-                border: none;
-                border-radius: 4px;
-                font-weight: bold;
-                font-size: 13px;
-            }
-            QPushButton:hover {
-                background-color: #218838;
-            }
-            QPushButton:disabled {
-                background-color: #6c757d;
-                color: #aaa;
-            }
-        """)
-        self.download_btn.clicked.connect(self.download_transcript)
-        bottom.addWidget(self.download_btn)
-
         self.save_btn = QPushButton("Save As...")
         self.save_btn.setMinimumHeight(38)
         self.save_btn.setMinimumWidth(110)
@@ -1008,7 +941,12 @@ class MainWindow(QMainWindow):
 
         bottom.addStretch()
 
-        self.copy_btn = QPushButton("Copy")
+        # Copy button with clipboard icon
+        copy_icon = QIcon.fromTheme(
+            "edit-copy",
+            self.style().standardIcon(self.style().StandardPixmap.SP_DialogSaveButton)
+        )
+        self.copy_btn = QPushButton(copy_icon, "Copy")
         self.copy_btn.setMinimumHeight(38)
         self.copy_btn.setMinimumWidth(100)
         self.copy_btn.clicked.connect(self.copy_to_clipboard)
@@ -1051,16 +989,29 @@ class MainWindow(QMainWindow):
         self._update_mic_display()
         self._update_model_display()
 
-        self.tabs.addTab(record_tab, "🎙️ Record")
+        # Add tabs with theme icons instead of emojis
+        record_icon = QIcon.fromTheme(
+            "audio-input-microphone",
+            QIcon.fromTheme("microphone", self.style().standardIcon(self.style().StandardPixmap.SP_MediaVolume))
+        )
+        self.tabs.addTab(record_tab, record_icon, "Record")
 
         # History tab (second tab for quick access)
         self.history_widget = HistoryWidget(config=self.config)
         self.history_widget.transcription_selected.connect(self.on_history_transcription_selected)
-        self.tabs.addTab(self.history_widget, "📝 History")
+        history_icon = QIcon.fromTheme(
+            "document-open-recent",
+            QIcon.fromTheme("edit-undo-history", self.style().standardIcon(self.style().StandardPixmap.SP_FileDialogContentsView))
+        )
+        self.tabs.addTab(self.history_widget, history_icon, "History")
 
         # File Transcription tab
         self.file_transcription_widget = FileTranscriptionWidget(config=self.config)
-        self.tabs.addTab(self.file_transcription_widget, "📁 File")
+        file_icon = QIcon.fromTheme(
+            "folder-open",
+            QIcon.fromTheme("document-open", self.style().standardIcon(self.style().StandardPixmap.SP_DirOpenIcon))
+        )
+        self.tabs.addTab(self.file_transcription_widget, file_icon, "File")
 
         # Prompt Editor window (opened via button, not a tab)
         self.prompt_editor_window = None
@@ -1074,6 +1025,62 @@ class MainWindow(QMainWindow):
         self.tabs.currentChanged.connect(self.on_tab_changed)
 
         main_layout.addWidget(self.tabs, 1)
+
+        # Persistent audio feedback footer (visible across all tabs)
+        feedback_footer = QHBoxLayout()
+        feedback_footer.setSpacing(8)
+        feedback_footer.setContentsMargins(0, 8, 0, 0)
+
+        feedback_footer.addStretch()
+
+        # Create button group for mutual exclusion
+        self._feedback_buttons = {}
+        feedback_btn_style = """
+            QPushButton {
+                background-color: #f0f0f0;
+                border: 1px solid #ccc;
+                border-radius: 4px;
+                padding: 4px 12px;
+                font-size: 11px;
+                color: #555;
+            }
+            QPushButton:hover {
+                background-color: #e8e8e8;
+            }
+            QPushButton:checked {
+                background-color: #007bff;
+                border-color: #007bff;
+                color: white;
+            }
+        """
+
+        quiet_btn = QPushButton("Quiet")
+        quiet_btn.setCheckable(True)
+        quiet_btn.setStyleSheet(feedback_btn_style)
+        quiet_btn.clicked.connect(lambda: self._set_audio_feedback_mode("silent"))
+        self._feedback_buttons["silent"] = quiet_btn
+        feedback_footer.addWidget(quiet_btn)
+
+        tts_btn = QPushButton("TTS")
+        tts_btn.setCheckable(True)
+        tts_btn.setStyleSheet(feedback_btn_style)
+        tts_btn.clicked.connect(lambda: self._set_audio_feedback_mode("tts"))
+        self._feedback_buttons["tts"] = tts_btn
+        feedback_footer.addWidget(tts_btn)
+
+        beeps_btn = QPushButton("Beeps")
+        beeps_btn.setCheckable(True)
+        beeps_btn.setStyleSheet(feedback_btn_style)
+        beeps_btn.clicked.connect(lambda: self._set_audio_feedback_mode("beeps"))
+        self._feedback_buttons["beeps"] = beeps_btn
+        feedback_footer.addWidget(beeps_btn)
+
+        feedback_footer.addStretch()
+
+        main_layout.addLayout(feedback_footer)
+
+        # Set initial state based on config
+        self._update_feedback_buttons()
 
     def setup_tray(self):
         """Set up system tray icon."""
@@ -1219,38 +1226,62 @@ class MainWindow(QMainWindow):
         self._setup_configurable_shortcuts()
 
     def _setup_configurable_shortcuts(self):
-        """Set up fixed F15-F19 shortcuts for when app has focus.
+        """Set up in-focus shortcuts using configured hotkeys.
 
         Note: Global hotkeys (work when app is minimized) are handled separately
         in setup_global_hotkeys(). These in-focus shortcuts provide additional
         responsiveness when the window has focus.
         """
         # Clean up old shortcuts if they exist
-        for attr in ['_f15_shortcut', '_f16_shortcut', '_f17_shortcut', '_f18_shortcut', '_f19_shortcut']:
+        shortcut_attrs = ['_shortcut_toggle', '_shortcut_tap_toggle', '_shortcut_transcribe',
+                         '_shortcut_clear', '_shortcut_append', '_shortcut_pause']
+        for attr in shortcut_attrs:
             if hasattr(self, attr):
                 shortcut = getattr(self, attr)
                 shortcut.setEnabled(False)
                 shortcut.deleteLater()
 
-        # F15: Toggle recording
-        self._f15_shortcut = QShortcut(QKeySequence("F15"), self)
-        self._f15_shortcut.activated.connect(self._hotkey_toggle_recording)
+        # Toggle: start/stop and transcribe
+        if self.config.hotkey_toggle:
+            seq = self._hotkey_to_qt_sequence(self.config.hotkey_toggle)
+            if seq:
+                self._shortcut_toggle = QShortcut(seq, self)
+                self._shortcut_toggle.activated.connect(self._hotkey_toggle_recording)
 
-        # F16: Tap (same as F15)
-        self._f16_shortcut = QShortcut(QKeySequence("F16"), self)
-        self._f16_shortcut.activated.connect(self._hotkey_toggle_recording)
+        # Tap toggle: start/stop and cache
+        if self.config.hotkey_tap_toggle:
+            seq = self._hotkey_to_qt_sequence(self.config.hotkey_tap_toggle)
+            if seq:
+                self._shortcut_tap_toggle = QShortcut(seq, self)
+                self._shortcut_tap_toggle.activated.connect(self._hotkey_tap_toggle)
 
-        # F17: Transcribe only
-        self._f17_shortcut = QShortcut(QKeySequence("F17"), self)
-        self._f17_shortcut.activated.connect(self._hotkey_transcribe_only)
+        # Transcribe: transcribe cached audio
+        if self.config.hotkey_transcribe:
+            seq = self._hotkey_to_qt_sequence(self.config.hotkey_transcribe)
+            if seq:
+                self._shortcut_transcribe = QShortcut(seq, self)
+                self._shortcut_transcribe.activated.connect(self._hotkey_transcribe_only)
 
-        # F18: Delete/clear
-        self._f18_shortcut = QShortcut(QKeySequence("F18"), self)
-        self._f18_shortcut.activated.connect(self._hotkey_delete)
+        # Clear: delete recording and cache
+        if self.config.hotkey_clear:
+            seq = self._hotkey_to_qt_sequence(self.config.hotkey_clear)
+            if seq:
+                self._shortcut_clear = QShortcut(seq, self)
+                self._shortcut_clear.activated.connect(self._hotkey_delete)
 
-        # F19: Append
-        self._f19_shortcut = QShortcut(QKeySequence("F19"), self)
-        self._f19_shortcut.activated.connect(self._hotkey_append)
+        # Append: start recording to add to cache
+        if self.config.hotkey_append:
+            seq = self._hotkey_to_qt_sequence(self.config.hotkey_append)
+            if seq:
+                self._shortcut_append = QShortcut(seq, self)
+                self._shortcut_append.activated.connect(self._hotkey_append)
+
+        # Pause: pause/resume recording
+        if self.config.hotkey_pause:
+            seq = self._hotkey_to_qt_sequence(self.config.hotkey_pause)
+            if seq:
+                self._shortcut_pause = QShortcut(seq, self)
+                self._shortcut_pause.activated.connect(self._hotkey_pause)
 
     def _hotkey_to_qt_sequence(self, hotkey_str: str) -> QKeySequence | None:
         """Convert a hotkey string like 'f15' or 'ctrl+f15' to a QKeySequence."""
@@ -1293,57 +1324,70 @@ class MainWindow(QMainWindow):
         self.hotkey_listener.start()
 
     def _register_hotkeys(self):
-        """Register fixed F-key hotkeys for all actions.
+        """Register global hotkeys for all actions using config values.
 
-        FIXED F-KEY MAPPING:
-        - F15: Simple toggle - Start recording / Stop and transcribe
-        - F16: Tap toggle - Start recording / Stop and cache (for append mode)
-        - F17: Transcribe cached audio only
-        - F18: Clear cache/delete recording
-        - F19: Append (start new recording to append to cache)
+        Hotkey functions (configurable via Settings → Hotkeys):
+        - toggle: Simple toggle - Start recording / Stop and transcribe
+        - tap_toggle: Tap toggle - Start recording / Stop and cache (for append mode)
+        - transcribe: Transcribe cached audio only
+        - clear: Clear cache/delete recording
+        - append: Append (start new recording to append to cache)
+        - pause: Pause/resume current recording
 
-        NOTE: Pause key is intentionally NOT registered as pynput can receive
-        spurious Key.pause events on some systems (e.g., mouse clicks being
-        misinterpreted as pause key presses).
+        Each hotkey can be configured to any key from F13-F24, or disabled.
         """
         # Unregister all existing hotkeys first
-        for name in ["pause_toggle", "f15_toggle", "f16_tap", "f17_transcribe", "f18_delete", "f19_append"]:
+        for name in ["hotkey_toggle", "hotkey_tap_toggle", "hotkey_transcribe",
+                     "hotkey_clear", "hotkey_append", "hotkey_pause"]:
             self.hotkey_listener.unregister(name)
 
-        # F15: Toggle recording (start/stop and cache)
-        self.hotkey_listener.register(
-            "f15_toggle",
-            "f15",
-            lambda: QTimer.singleShot(0, self._hotkey_toggle_recording)
-        )
+        # Toggle: start/stop and transcribe
+        if self.config.hotkey_toggle:
+            self.hotkey_listener.register(
+                "hotkey_toggle",
+                self.config.hotkey_toggle,
+                lambda: QTimer.singleShot(0, self._hotkey_toggle_recording)
+            )
 
-        # F16: Tap toggle (stop caches for append mode, unlike F15 which transcribes)
-        self.hotkey_listener.register(
-            "f16_tap",
-            "f16",
-            lambda: QTimer.singleShot(0, self._hotkey_tap_toggle)
-        )
+        # Tap toggle: start/stop and cache (for append mode)
+        if self.config.hotkey_tap_toggle:
+            self.hotkey_listener.register(
+                "hotkey_tap_toggle",
+                self.config.hotkey_tap_toggle,
+                lambda: QTimer.singleShot(0, self._hotkey_tap_toggle)
+            )
 
-        # F17: Transcribe only (cached audio)
-        self.hotkey_listener.register(
-            "f17_transcribe",
-            "f17",
-            lambda: QTimer.singleShot(0, self._hotkey_transcribe_only)
-        )
+        # Transcribe: transcribe cached audio only
+        if self.config.hotkey_transcribe:
+            self.hotkey_listener.register(
+                "hotkey_transcribe",
+                self.config.hotkey_transcribe,
+                lambda: QTimer.singleShot(0, self._hotkey_transcribe_only)
+            )
 
-        # F18: Clear cache/delete
-        self.hotkey_listener.register(
-            "f18_delete",
-            "f18",
-            lambda: QTimer.singleShot(0, self._hotkey_delete)
-        )
+        # Clear: clear cache/delete recording
+        if self.config.hotkey_clear:
+            self.hotkey_listener.register(
+                "hotkey_clear",
+                self.config.hotkey_clear,
+                lambda: QTimer.singleShot(0, self._hotkey_delete)
+            )
 
-        # F19: Append
-        self.hotkey_listener.register(
-            "f19_append",
-            "f19",
-            lambda: QTimer.singleShot(0, self._hotkey_append)
-        )
+        # Append: start new recording to add to cache
+        if self.config.hotkey_append:
+            self.hotkey_listener.register(
+                "hotkey_append",
+                self.config.hotkey_append,
+                lambda: QTimer.singleShot(0, self._hotkey_append)
+            )
+
+        # Pause: pause/resume current recording
+        if self.config.hotkey_pause:
+            self.hotkey_listener.register(
+                "hotkey_pause",
+                self.config.hotkey_pause,
+                lambda: QTimer.singleShot(0, self._hotkey_pause)
+            )
 
     def _hotkey_toggle_recording(self):
         """Handle F15: Simple toggle - start recording, or stop and transcribe."""
@@ -1378,9 +1422,14 @@ class MainWindow(QMainWindow):
         self.delete_recording()
 
     def _hotkey_append(self):
-        """Handle F19: Append (start new recording to add to cache)."""
+        """Handle Append hotkey: Start new recording to add to cache."""
         if not self.recorder.is_recording:
             self.append_to_transcription()
+
+    def _hotkey_pause(self):
+        """Handle Pause hotkey: Pause/resume current recording."""
+        if self.recorder.is_recording or self.recorder.is_paused:
+            self.toggle_pause()
 
     def toggle_pause_if_recording(self):
         """Toggle pause only if currently recording."""
@@ -1393,20 +1442,14 @@ class MainWindow(QMainWindow):
             self.stop_and_transcribe()
 
     def update_word_count(self):
-        """Update the word count display and enable/disable buttons."""
+        """Update the word count display."""
         text = self.text_output.toPlainText()
         if text:
             words = len(text.split())
             chars = len(text)
             self.word_count_label.setText(f"{words} words, {chars} characters")
-            # Enable rewrite and download buttons when we have text
-            self.rewrite_btn.setEnabled(True)
-            self.download_btn.setEnabled(True)
         else:
             self.word_count_label.setText("")
-            # Disable rewrite and download buttons when no text
-            self.rewrite_btn.setEnabled(False)
-            self.download_btn.setEnabled(False)
 
     def on_tab_changed(self, index: int):
         """Handle tab change - refresh data in the selected tab."""
@@ -1468,15 +1511,6 @@ class MainWindow(QMainWindow):
         self.prompt_editor_window.raise_()
         self.prompt_editor_window.activateWindow()
 
-    def _on_quiet_mode_changed(self, checked: bool):
-        """Handle Quiet Mode checkbox toggle.
-
-        Quiet Mode suppresses all beeps without changing the default beep settings.
-        When unchecked, beeps will play according to Settings → Behavior preferences.
-        """
-        self.config.quiet_mode = checked
-        save_config(self.config)
-
     def _toggle_output_mode(self, mode: str):
         """Toggle an output mode on/off.
 
@@ -1520,6 +1554,22 @@ class MainWindow(QMainWindow):
                 btn.setStyleSheet(self._mode_btn_active_style)
             else:
                 btn.setStyleSheet(self._mode_btn_inactive_style)
+
+    def _set_audio_feedback_mode(self, mode: str):
+        """Set the audio feedback mode.
+
+        Args:
+            mode: One of "silent", "tts", or "beeps"
+        """
+        self.config.audio_feedback_mode = mode
+        save_config(self.config)
+        self._update_feedback_buttons()
+
+    def _update_feedback_buttons(self):
+        """Update feedback button checked states based on current config."""
+        current_mode = self.config.audio_feedback_mode
+        for mode_key, btn in self._feedback_buttons.items():
+            btn.setChecked(mode_key == current_mode)
 
     def _on_tldr_toggled(self, checked: bool):
         """Handle TLDR checkbox toggle.
@@ -1661,18 +1711,25 @@ class MainWindow(QMainWindow):
                 # Reset append mode if starting fresh
                 self.append_mode = False
 
+            # Clear any failed audio state when starting a new recording
+            if self.has_failed_audio:
+                self.has_failed_audio = False
+                if hasattr(self, 'last_audio_data'):
+                    del self.last_audio_data
+                if hasattr(self, 'last_audio_duration'):
+                    del self.last_audio_duration
+                if hasattr(self, 'last_vad_duration'):
+                    del self.last_vad_duration
+
             # Set microphone from config
             mic_idx = self.get_selected_microphone_index()
             if mic_idx is not None:
                 self.recorder.set_device(mic_idx)
 
-            # Play start beep (unless in Quiet Mode)
-            feedback = get_feedback()
-            feedback.enabled = self.config.beep_on_record and not self.config.quiet_mode
-            feedback.play_start_beep()
-
-            # TTS announcement (accessibility)
-            if self.config.tts_announcements_enabled and not self.config.quiet_mode:
+            # Audio feedback (beeps or TTS based on mode)
+            if self.config.audio_feedback_mode == "beeps":
+                get_feedback().play_start_beep()
+            elif self.config.audio_feedback_mode == "tts":
                 get_announcer().announce_recording()
 
             self.recorder.start_recording()
@@ -1693,6 +1750,9 @@ class MainWindow(QMainWindow):
     def toggle_pause(self):
         """Toggle pause state."""
         if self.recorder.is_paused:
+            # TTS announcement (blocking) before resuming to prevent capture
+            if self.config.audio_feedback_mode == "tts":
+                get_announcer().announce_resumed()
             self.recorder.resume_recording()
             self.pause_btn.setText("⏸")
             self.status_label.setText("Recording...")
@@ -1700,6 +1760,9 @@ class MainWindow(QMainWindow):
             self.status_label.show()
         else:
             self.recorder.pause_recording()
+            # TTS announcement after pausing (mic not capturing)
+            if self.config.audio_feedback_mode == "tts":
+                get_announcer().announce_paused()
             self.pause_btn.setText("▶")
             self.status_label.setText("Paused")
             self.status_label.setStyleSheet("color: rgba(255, 193, 7, 0.8); font-size: 11px;")
@@ -1710,13 +1773,11 @@ class MainWindow(QMainWindow):
         if not self.recorder.is_recording:
             return
 
-        # Play stop beep (unless in Quiet Mode)
-        feedback = get_feedback()
-        feedback.enabled = self.config.beep_on_record and not self.config.quiet_mode
-        feedback.play_stop_beep()
-
-        # TTS announcement (accessibility) - announce "Cached" for append mode, "Stopped" otherwise
-        if self.config.tts_announcements_enabled and not self.config.quiet_mode:
+        # Audio feedback (beeps or TTS based on mode)
+        if self.config.audio_feedback_mode == "beeps":
+            get_feedback().play_stop_beep()
+        elif self.config.audio_feedback_mode == "tts":
+            # Announce "Cached" for append mode, "Stopped" otherwise
             if self.append_mode or self.accumulated_segments:
                 get_announcer().announce_cached()
             else:
@@ -1839,9 +1900,95 @@ class MainWindow(QMainWindow):
         self.worker.vad_complete.connect(self.on_vad_complete)
         self.worker.start()
 
-        # TTS announcement (accessibility)
-        if self.config.tts_announcements_enabled and not self.config.quiet_mode:
+        # TTS announcement for transcribing
+        if self.config.audio_feedback_mode == "tts":
             get_announcer().announce_transcribing()
+
+    def retry_transcription(self):
+        """Retry transcription of previously failed audio.
+
+        Uses the stored last_audio_data from the failed attempt.
+        """
+        if not hasattr(self, 'last_audio_data') or not self.last_audio_data:
+            return  # No audio to retry
+
+        # Clear the failed audio flag
+        self.has_failed_audio = False
+
+        # Disable all controls during transcription
+        self.record_btn.setText("●")
+        self.record_btn.setEnabled(False)
+        self.pause_btn.setEnabled(False)
+        self.append_btn.setEnabled(False)
+        self.stop_btn.setEnabled(False)
+        self.transcribe_btn.setEnabled(False)
+        self.delete_btn.setEnabled(False)
+        self.status_label.setText("Retrying transcription...")
+        self.status_label.setStyleSheet("color: rgba(0, 123, 255, 0.7); font-size: 11px;")
+        self.status_label.show()
+
+        # Update tray to transcribing state
+        self._set_tray_state('transcribing')
+
+        # Get API key for selected provider
+        provider = self.config.selected_provider
+        if provider == "gemini":
+            api_key = self.config.gemini_api_key
+            model = self.config.gemini_model
+        else:  # openrouter
+            api_key = self.config.openrouter_api_key
+            model = self.config.openrouter_model
+
+        if not api_key:
+            QMessageBox.warning(
+                self,
+                "Missing API Key",
+                f"Please set your {provider.title()} API key in Settings.",
+            )
+            # Restore failed audio state so user can try again after setting key
+            self.has_failed_audio = True
+            self._show_retry_ui()
+            return
+
+        # Clean up any previous worker before creating new one
+        self._cleanup_worker('worker')
+
+        # Start transcription worker
+        # Use stored duration for short audio optimization
+        audio_duration = getattr(self, 'last_audio_duration', None)
+        cleanup_prompt = build_cleanup_prompt(self.config, audio_duration_seconds=audio_duration)
+        self.worker = TranscriptionWorker(
+            self.last_audio_data,
+            provider,
+            api_key,
+            model,
+            cleanup_prompt,
+            vad_enabled=self.config.vad_enabled,
+        )
+        self.worker.finished.connect(self.on_transcription_complete)
+        self.worker.error.connect(self.on_transcription_error)
+        self.worker.status.connect(self.on_worker_status)
+        self.worker.vad_complete.connect(self.on_vad_complete)
+        self.worker.start()
+
+        # TTS announcement for transcribing
+        if self.config.audio_feedback_mode == "tts":
+            get_announcer().announce_transcribing()
+
+    def _show_retry_ui(self):
+        """Show UI state for retry available."""
+        self.record_btn.setText("●")
+        self.record_btn.setStyleSheet(self._record_btn_idle_style)
+        self.record_btn.setEnabled(True)
+        self.pause_btn.setEnabled(False)
+        self.append_btn.setEnabled(False)
+        self.stop_btn.setEnabled(False)
+        self.transcribe_btn.setEnabled(True)  # Enable for retry
+        self.transcribe_btn.setStyleSheet(self._transcribe_btn_idle_style)
+        self.delete_btn.setEnabled(True)  # Enable to discard failed audio
+        self.status_label.setText("Transcription failed — click ➤ to retry")
+        self.status_label.setStyleSheet("color: rgba(220, 53, 69, 0.9); font-size: 11px;")
+        self.status_label.show()
 
     def _update_segment_indicator(self):
         """Update the segment count display."""
@@ -1859,12 +2006,16 @@ class MainWindow(QMainWindow):
         This is used by hotkeys for quick transcription without caching.
         If you want to cache audio first, use handle_stop_button() instead.
         """
+        # If we have failed audio waiting for retry, retry it
+        if self.has_failed_audio:
+            self.retry_transcription()
+            return
+
         # If currently recording, stop it first
         if self.recorder.is_recording:
-            # Play stop beep (unless in Quiet Mode)
-            feedback = get_feedback()
-            feedback.enabled = self.config.beep_on_record and not self.config.quiet_mode
-            feedback.play_stop_beep()
+            # Audio feedback for stop (beeps only - TTS "transcribing" comes later)
+            if self.config.audio_feedback_mode == "beeps":
+                get_feedback().play_stop_beep()
 
             self.timer.stop()
             audio_data = self.recorder.stop_recording()
@@ -1950,8 +2101,8 @@ class MainWindow(QMainWindow):
         self.worker.vad_complete.connect(self.on_vad_complete)
         self.worker.start()
 
-        # TTS announcement (accessibility)
-        if self.config.tts_announcements_enabled and not self.config.quiet_mode:
+        # TTS announcement for transcribing
+        if self.config.audio_feedback_mode == "tts":
             get_announcer().announce_transcribing()
 
     def on_worker_status(self, status: str):
@@ -2052,7 +2203,8 @@ class MainWindow(QMainWindow):
             prompt_text_length=prompt_length,
         )
 
-        # Clear stored audio data
+        # Clear stored audio data and retry state
+        self.has_failed_audio = False
         if hasattr(self, 'last_audio_data'):
             del self.last_audio_data
         if hasattr(self, 'last_audio_duration'):
@@ -2068,25 +2220,30 @@ class MainWindow(QMainWindow):
             self._copy_to_clipboard_wayland(result.text)
             did_clipboard = True
 
+        injection_failed = False
         if output_to_inject:
-            self._inject_text_at_cursor(result.text)
-            did_inject = True
-
-        # Play beep if any invisible action was performed (unless in Quiet Mode)
-        if did_clipboard or did_inject:
-            feedback = get_feedback()
-            feedback.enabled = self.config.beep_on_clipboard and not self.config.quiet_mode
-            feedback.play_clipboard_beep()
-
-        # TTS announcements (accessibility)
-        if self.config.tts_announcements_enabled and not self.config.quiet_mode:
-            announcer = get_announcer()
-            if did_inject:
-                announcer.announce_injected()
-            elif did_clipboard:
-                announcer.announce_copied()
+            if self._inject_text_at_cursor(result.text):
+                did_inject = True
             else:
-                announcer.announce_complete()
+                injection_failed = True
+
+        # Audio feedback for completion (beeps or TTS based on mode)
+        if self.config.audio_feedback_mode == "beeps":
+            # Beep for invisible actions (clipboard/inject)
+            if did_clipboard or did_inject:
+                get_feedback().play_clipboard_beep()
+        elif self.config.audio_feedback_mode == "tts":
+            # TTS: announce what happened based on output modes
+            if injection_failed:
+                get_announcer().announce_injection_failed()
+            elif did_clipboard:
+                get_announcer().announce_text_on_clipboard()
+            elif did_inject:
+                get_announcer().announce_text_injected()
+            elif output_to_app:
+                get_announcer().announce_text_in_app()
+            else:
+                get_announcer().announce_complete()
 
         self.reset_ui()
 
@@ -2098,23 +2255,37 @@ class MainWindow(QMainWindow):
         tray_state = self._get_completion_tray_state(did_clipboard, did_inject)
         self._set_tray_state(tray_state)
 
-        # In quiet mode for clipboard/inject, keep status visible indefinitely
+        # In silent mode for clipboard/inject, keep status visible indefinitely
         # (it will clear when user starts next recording)
         # Otherwise, auto-hide after 3 seconds
         invisible_action = did_clipboard or did_inject
-        if not self.config.quiet_mode or not invisible_action:
+        is_silent = self.config.audio_feedback_mode == "silent"
+        if not is_silent or not invisible_action:
             complete_states = ('complete', 'clipboard_complete', 'inject_complete', 'clipboard_inject_complete')
             QTimer.singleShot(3000, lambda: self._set_tray_state('idle') if self._tray_state in complete_states else None)
 
     def on_transcription_error(self, error: str):
         """Handle transcription error."""
-        # TTS announcement (accessibility)
-        if self.config.tts_announcements_enabled and not self.config.quiet_mode:
+        # TTS announcement for error
+        if self.config.audio_feedback_mode == "tts":
             get_announcer().announce_error()
 
-        QMessageBox.critical(self, "Transcription Error", error)
-        self.reset_ui()
-        self._set_tray_state('idle')
+        # Check if we have audio data to retry with
+        if hasattr(self, 'last_audio_data') and self.last_audio_data:
+            self.has_failed_audio = True
+            QMessageBox.warning(
+                self,
+                "Transcription Failed",
+                f"{error}\n\nYour audio has been preserved. Click the transcribe button (➤) to retry, "
+                "or delete to discard.",
+            )
+            self._show_retry_ui()
+            self._set_tray_state('idle')
+        else:
+            # No audio to retry with - show error and reset normally
+            QMessageBox.critical(self, "Transcription Error", error)
+            self.reset_ui()
+            self._set_tray_state('idle')
 
     def _update_cost_display(self):
         """No-op: Cost display removed from status bar."""
@@ -2271,15 +2442,12 @@ class MainWindow(QMainWindow):
         if reply != QMessageBox.StandardButton.Yes:
             return
 
-        # Play stop beep when discarding (unless in Quiet Mode)
-        if self.recorder.is_recording or self.recorder.is_paused:
-            feedback = get_feedback()
-            feedback.enabled = self.config.beep_on_record and not self.config.quiet_mode
-            feedback.play_stop_beep()
-
-        # TTS announcement (accessibility)
-        if self.config.tts_announcements_enabled and not self.config.quiet_mode:
-            get_announcer().announce_cleared()
+        # Audio feedback for discard (beeps or TTS based on mode)
+        if self.config.audio_feedback_mode == "beeps":
+            if self.recorder.is_recording or self.recorder.is_paused:
+                get_feedback().play_stop_beep()
+        elif self.config.audio_feedback_mode == "tts":
+            get_announcer().announce_discarded()
 
         self.timer.stop()
         if self.recorder.is_recording or self.recorder.is_paused:
@@ -2294,6 +2462,15 @@ class MainWindow(QMainWindow):
         # Reset state flags
         self.append_mode = False
         self.has_cached_audio = False
+        self.has_failed_audio = False
+
+        # Clear any failed audio data
+        if hasattr(self, 'last_audio_data'):
+            del self.last_audio_data
+        if hasattr(self, 'last_audio_duration'):
+            del self.last_audio_duration
+        if hasattr(self, 'last_vad_duration'):
+            del self.last_vad_duration
 
         self.reset_ui()
         self._set_tray_state('idle')
@@ -2387,16 +2564,19 @@ class MainWindow(QMainWindow):
         from .text_injection import paste_clipboard_with_fallback
         paste_clipboard_with_fallback(delay_before=0.1)
 
-    def _inject_text_at_cursor(self, text: str):
+    def _inject_text_at_cursor(self, text: str) -> bool:
         """Type text directly at cursor using ydotool type.
 
         This method types text character-by-character without using the
         clipboard. The clipboard contents are not modified.
 
         Requires ydotool installed and ydotoold daemon running.
+
+        Returns:
+            True if injection succeeded, False otherwise.
         """
         from .text_injection import type_text
-        type_text(text, delay_before=0.1)
+        return type_text(text, delay_before=0.1)
 
     def copy_to_clipboard(self):
         """Copy transcription to clipboard."""
@@ -2447,9 +2627,7 @@ class MainWindow(QMainWindow):
             )
             return
 
-        # Disable UI during rewrite
-        self.rewrite_btn.setEnabled(False)
-        self.download_btn.setEnabled(False)
+        # Show rewrite status
         self.status_label.setText("Rewriting...")
         self.status_label.setStyleSheet("color: rgba(0, 123, 255, 0.7); font-size: 11px;")
         self.status_label.show()
@@ -2511,9 +2689,6 @@ class MainWindow(QMainWindow):
             prompt_text_length=len(self.rewrite_worker.instruction) if self.rewrite_worker else 0,
         )
 
-        # Re-enable buttons
-        self.rewrite_btn.setEnabled(True)
-        self.download_btn.setEnabled(True)
         self.status_label.setText("Rewrite complete!")
         self.status_label.setStyleSheet("color: rgba(40, 167, 69, 0.7); font-size: 11px;")
         self.status_label.show()
@@ -2522,8 +2697,6 @@ class MainWindow(QMainWindow):
     def on_rewrite_error(self, error: str):
         """Handle rewrite error."""
         QMessageBox.critical(self, "Rewrite Error", error)
-        self.rewrite_btn.setEnabled(True)
-        self.download_btn.setEnabled(True)
         self.status_label.hide()
 
     def download_transcript(self):
@@ -2542,8 +2715,6 @@ class MainWindow(QMainWindow):
             self._save_transcript_to_file(filename, text)
             return
 
-        # Disable button during title generation
-        self.download_btn.setEnabled(False)
         self.status_label.setText("Generating title...")
         self.status_label.setStyleSheet("color: rgba(0, 123, 255, 0.7); font-size: 11px;")
         self.status_label.show()
@@ -2568,8 +2739,6 @@ class MainWindow(QMainWindow):
         filename = f"{title}.md"
         self._save_transcript_to_file(filename, text)
 
-        # Re-enable button
-        self.download_btn.setEnabled(True)
         self.status_label.setText("Downloaded!")
         self.status_label.setStyleSheet("color: rgba(40, 167, 69, 0.7); font-size: 11px;")
         self.status_label.show()
@@ -2583,8 +2752,6 @@ class MainWindow(QMainWindow):
         filename = f"transcript_{timestamp}.md"
         self._save_transcript_to_file(filename, text)
 
-        # Re-enable button
-        self.download_btn.setEnabled(True)
         self.status_label.setText("Downloaded (timestamp)")
         self.status_label.setStyleSheet("color: rgba(40, 167, 69, 0.7); font-size: 11px;")
         self.status_label.show()
@@ -2612,8 +2779,10 @@ class MainWindow(QMainWindow):
         # Create dialog if it doesn't exist
         if self.settings_dialog is None:
             self.settings_dialog = SettingsDialog(self.config, self.recorder, self)
-            # Connect to settings_closed signal to sync quiet mode checkbox
-            self.settings_dialog.settings_closed.connect(self._sync_quiet_mode_checkbox)
+            # Connect to settings_closed signal to sync UI state
+            self.settings_dialog.settings_closed.connect(self._sync_ui_from_settings)
+            # Connect to hotkeys_changed signal to re-register global hotkeys
+            self.settings_dialog.hotkeys_changed.connect(self._refresh_hotkeys)
 
         # Refresh and show
         self.settings_dialog.refresh()
@@ -2621,21 +2790,15 @@ class MainWindow(QMainWindow):
         self.settings_dialog.raise_()
         self.settings_dialog.activateWindow()
 
-    def _sync_quiet_mode_checkbox(self):
-        """Sync the toggle checkboxes state with current config.
+    def _refresh_hotkeys(self):
+        """Re-register global hotkeys after config change."""
+        # Re-register global hotkeys
+        self._register_hotkeys()
+        # Re-setup in-focus shortcuts
+        self._setup_configurable_shortcuts()
 
-        Called when settings dialog is closed. Ensures consistency if
-        settings are modified in the Settings → Behavior tab.
-        """
-        # Block signals to prevent triggering the toggle handlers
-        self.quiet_mode_checkbox.blockSignals(True)
-        self.quiet_mode_checkbox.setChecked(self.config.quiet_mode)
-        self.quiet_mode_checkbox.blockSignals(False)
-
-        self.auto_paste_cb.blockSignals(True)
-        self.auto_paste_cb.setChecked(self.config.auto_paste)
-        self.auto_paste_cb.blockSignals(False)
-
+    def _sync_ui_from_settings(self):
+        """Sync UI state with current config after settings dialog closes."""
         # Update status bar displays in case they changed
         self._update_mic_display()
         self._update_model_display()
@@ -2663,10 +2826,33 @@ class MainWindow(QMainWindow):
         self.about_dialog.activateWindow()
 
     def show_window(self):
-        """Show and raise the window."""
-        self.show()
+        """Show and raise the window, handling minimized state."""
+        # If minimized, restore to normal state first
+        if self.isMinimized():
+            self.showNormal()
+        else:
+            self.show()
         self.raise_()
         self.activateWindow()
+        # On Wayland/KDE, we may need additional activation
+        # Setting window state can help ensure it comes to front
+        self.setWindowState(
+            (self.windowState() & ~Qt.WindowState.WindowMinimized) | Qt.WindowState.WindowActive
+        )
+
+    def changeEvent(self, event):
+        """Handle window state changes for proper taskbar activation on Wayland/KDE."""
+        from PyQt6.QtCore import QEvent
+        if event.type() == QEvent.Type.ActivationChange:
+            # When window is activated (e.g., via taskbar click), ensure it's visible and raised
+            if self.isActiveWindow() and self.isMinimized():
+                self.showNormal()
+        elif event.type() == QEvent.Type.WindowStateChange:
+            # If being restored from minimized state, ensure proper activation
+            if not self.isMinimized() and self.isVisible():
+                self.raise_()
+                self.activateWindow()
+        super().changeEvent(event)
 
     def on_tray_activated(self, reason):
         """Handle tray icon activation based on current state."""

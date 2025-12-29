@@ -51,10 +51,14 @@ def _get_assets_dir() -> Path:
 
 
 class TTSAnnouncer:
-    """Manages TTS accessibility announcements."""
+    """Manages TTS accessibility announcements.
+
+    Note: The announcer always plays when methods are called. The calling code
+    (main.py) is responsible for checking config.audio_feedback_mode == "tts"
+    before calling announce_* methods.
+    """
 
     def __init__(self):
-        self._enabled = False
         self._assets_dir = _get_assets_dir()
         self._audio_cache: dict[str, Optional[bytes]] = {}
         self._sample_rate = 16000  # WAV files are 16kHz
@@ -65,8 +69,14 @@ class TTSAnnouncer:
     def _preload_audio(self) -> None:
         """Pre-load all TTS audio files into memory."""
         announcements = [
-            "recording", "stopped", "transcribing", "complete",
-            "copied", "injected", "cleared", "cached", "error"
+            # Recording states
+            "recording", "stopped", "paused", "resumed", "discarded", "appended", "cached",
+            # Transcription states
+            "transcribing", "complete", "error",
+            # Output modes
+            "text_in_app", "text_on_clipboard", "text_injected", "injection_failed",
+            # Legacy (kept for compatibility)
+            "copied", "injected", "cleared",
         ]
 
         for name in announcements:
@@ -87,25 +97,34 @@ class TTSAnnouncer:
             else:
                 self._audio_cache[name] = None
 
-    @property
-    def enabled(self) -> bool:
-        return self._enabled
-
-    @enabled.setter
-    def enabled(self, value: bool):
-        self._enabled = value
-
     def _play_async(self, name: str) -> None:
-        """Play an announcement in a background thread."""
-        if not self._enabled:
-            return
-
+        """Play an announcement in a background thread (non-blocking)."""
         audio = self._audio_cache.get(name)
         if audio is None:
             return
 
         thread = threading.Thread(target=self._play_audio, args=(name, audio), daemon=True)
         thread.start()
+
+    def _play_sync(self, name: str, buffer_ms: int = 100) -> None:
+        """Play an announcement and block until complete.
+
+        Used for announce_recording() to ensure the TTS finishes before
+        the microphone starts capturing, preventing "Recording" from
+        appearing in transcripts.
+
+        Args:
+            name: The announcement name (e.g., "recording")
+            buffer_ms: Extra delay after playback to ensure audio is flushed
+        """
+        import time
+        audio = self._audio_cache.get(name)
+        if audio is None:
+            return
+        self._play_audio(name, audio)
+        # Small buffer to ensure audio system has fully flushed
+        if buffer_ms > 0:
+            time.sleep(buffer_ms / 1000.0)
 
     def _play_audio(self, name: str, audio) -> None:
         """Play audio data."""
@@ -136,13 +155,48 @@ class TTSAnnouncer:
 
         # If no audio backend available, silently fail
 
+    # -------------------------------------------------------------------------
+    # Recording state announcements
+    # -------------------------------------------------------------------------
+
     def announce_recording(self) -> None:
-        """Announce: Recording started."""
-        self._play_async("recording")
+        """Announce: Recording started (blocking).
+
+        This method blocks until the announcement finishes to prevent
+        the TTS audio from being captured by the microphone.
+        """
+        self._play_sync("recording")
 
     def announce_stopped(self) -> None:
         """Announce: Recording stopped."""
         self._play_async("stopped")
+
+    def announce_paused(self) -> None:
+        """Announce: Recording paused."""
+        self._play_async("paused")
+
+    def announce_resumed(self) -> None:
+        """Announce: Recording resumed (blocking).
+
+        Blocks to prevent 'Recording resumed' from being captured.
+        """
+        self._play_sync("resumed")
+
+    def announce_discarded(self) -> None:
+        """Announce: Recording discarded."""
+        self._play_async("discarded")
+
+    def announce_appended(self) -> None:
+        """Announce: Recording appended to cache."""
+        self._play_async("appended")
+
+    def announce_cached(self) -> None:
+        """Announce: Audio cached for append mode."""
+        self._play_async("cached")
+
+    # -------------------------------------------------------------------------
+    # Transcription state announcements
+    # -------------------------------------------------------------------------
 
     def announce_transcribing(self) -> None:
         """Announce: Transcription in progress."""
@@ -152,25 +206,45 @@ class TTSAnnouncer:
         """Announce: Transcription complete."""
         self._play_async("complete")
 
-    def announce_copied(self) -> None:
-        """Announce: Text copied to clipboard."""
-        self._play_async("copied")
-
-    def announce_injected(self) -> None:
-        """Announce: Text injected at cursor."""
-        self._play_async("injected")
-
-    def announce_cleared(self) -> None:
-        """Announce: Recording cleared/discarded."""
-        self._play_async("cleared")
-
-    def announce_cached(self) -> None:
-        """Announce: Audio cached for append mode."""
-        self._play_async("cached")
-
     def announce_error(self) -> None:
         """Announce: Error occurred."""
         self._play_async("error")
+
+    # -------------------------------------------------------------------------
+    # Output mode announcements
+    # -------------------------------------------------------------------------
+
+    def announce_text_in_app(self) -> None:
+        """Announce: Text displayed in app."""
+        self._play_async("text_in_app")
+
+    def announce_text_on_clipboard(self) -> None:
+        """Announce: Text copied to clipboard."""
+        self._play_async("text_on_clipboard")
+
+    def announce_text_injected(self) -> None:
+        """Announce: Text injected at cursor."""
+        self._play_async("text_injected")
+
+    def announce_injection_failed(self) -> None:
+        """Announce: Text injection failed."""
+        self._play_async("injection_failed")
+
+    # -------------------------------------------------------------------------
+    # Legacy methods (kept for compatibility)
+    # -------------------------------------------------------------------------
+
+    def announce_copied(self) -> None:
+        """Announce: Copied (legacy, use announce_text_on_clipboard)."""
+        self._play_async("copied")
+
+    def announce_injected(self) -> None:
+        """Announce: Injected (legacy, use announce_text_injected)."""
+        self._play_async("injected")
+
+    def announce_cleared(self) -> None:
+        """Announce: Cleared (legacy, use announce_discarded)."""
+        self._play_async("cleared")
 
 
 # Global singleton instance

@@ -37,6 +37,9 @@ Thumbs.db
 recordings/
 testing/
 
+# Exception: TTS assets are committed to the repo
+!app/assets/tts/*.wav
+
 # Private development files
 private/
 decisions/

@@ -24,16 +24,32 @@ echo "Output directory: $OUTPUT_DIR"
 echo
 
 # Announcements to generate
+# Keys are filenames, values are the spoken text
 declare -A ANNOUNCEMENTS=(
+    # Recording states
     ["recording"]="Recording"
-    ["stopped"]="Stopped"
+    ["stopped"]="Recording stopped"
+    ["paused"]="Recording paused"
+    ["resumed"]="Recording resumed"
+    ["discarded"]="Recording discarded"
+    ["appended"]="Recording appended"
+    ["cached"]="Cached"
+
+    # Transcription states
     ["transcribing"]="Transcribing"
     ["complete"]="Complete"
+    ["error"]="Error"
+
+    # Output modes
+    ["text_in_app"]="Text in app"
+    ["text_on_clipboard"]="Text on clipboard"
+    ["text_injected"]="Text injected"
+    ["injection_failed"]="Injection failed"
+
+    # Legacy (kept for compatibility)
     ["copied"]="Copied"
     ["injected"]="Injected"
     ["cleared"]="Cleared"
-    ["cached"]="Cached"
-    ["error"]="Error"
 )
 
 for name in "${!ANNOUNCEMENTS[@]}"; do
