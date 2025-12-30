@@ -55,7 +55,7 @@ from .config import (
     GEMINI_MODELS, OPENROUTER_MODELS,
     MODEL_TIERS, build_cleanup_prompt, get_model_display_name,
     FORMAT_TEMPLATES, FORMAT_DISPLAY_NAMES, FORMALITY_DISPLAY_NAMES, VERBOSITY_DISPLAY_NAMES, EMAIL_SIGNOFFS,
-    is_favorite_configured, get_active_provider_and_model,
+    is_favorite_configured, get_active_provider_and_model, get_fallback_provider_and_model, is_preset_configured,
 )
 from .audio_recorder import AudioRecorder
 from .transcription import get_client, TranscriptionResult
@@ -275,6 +275,7 @@ class MainWindow(QMainWindow):
         self.append_mode: bool = False  # Track if next transcription should append
         self.has_cached_audio: bool = False  # Track if we have stopped audio waiting to be transcribed
         self.has_failed_audio: bool = False  # Track if we have audio from a failed transcription (for retry)
+        self._failover_in_progress: bool = False  # Track if we're currently in a failover attempt
 
         # Initialize unified prompt library
         self.prompt_library = PromptLibrary(CONFIG_DIR)
@@ -318,6 +319,8 @@ class MainWindow(QMainWindow):
             QSystemTrayIcon.MessageIcon.Warning,
             3000,
         )
+        # Stop visual effects (pulsating, grayscale)
+        self._stop_recording_visual_effects()
         # Reset UI but keep any recorded audio or failed audio
         self.record_btn.setText("●")
         self.record_btn.setStyleSheet(self._record_btn_idle_style)
@@ -812,6 +815,25 @@ class MainWindow(QMainWindow):
         """)
         mode_layout.addWidget(self.vad_checkbox)
 
+        # Separator before status label
+        mode_separator_status = QFrame()
+        mode_separator_status.setFrameShape(QFrame.Shape.VLine)
+        mode_separator_status.setStyleSheet("background-color: #ced4da; max-width: 1px; margin: 0 8px;")
+        mode_layout.addWidget(mode_separator_status)
+
+        # Status label (right side) - shows recording/transcribing state
+        self.status_label = QLabel("")
+        self.status_label.setStyleSheet("""
+            QLabel {
+                color: rgba(108, 117, 125, 0.7);
+                font-size: 11px;
+            }
+        """)
+        self.status_label.setAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
+        self.status_label.setMinimumWidth(100)  # Ensure enough space for status text
+        self.status_label.hide()
+        mode_layout.addWidget(self.status_label)
+
         mode_layout.addStretch()
         recording_layout.addLayout(mode_layout)
 
@@ -918,20 +940,6 @@ class MainWindow(QMainWindow):
         self.mic_label.setStyleSheet("color: #888; font-size: 11px;")
         self.mic_label.setTextFormat(Qt.TextFormat.RichText)
         status_bar.addWidget(self.mic_label)
-
-        status_bar.addStretch()
-
-        # Status label (center) - shows recording/transcribing state with subtle opacity
-        self.status_label = QLabel("")
-        self.status_label.setStyleSheet("""
-            QLabel {
-                color: rgba(108, 117, 125, 0.7);
-                font-size: 11px;
-            }
-        """)
-        self.status_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.status_label.hide()
-        status_bar.addWidget(self.status_label)
 
         status_bar.addStretch()
 
@@ -1190,6 +1198,62 @@ class MainWindow(QMainWindow):
         """Set up timer for updating recording duration."""
         self.timer = QTimer()
         self.timer.timeout.connect(self.update_duration)
+
+        # Pulsation timer for record button animation
+        self._pulse_timer = QTimer()
+        self._pulse_timer.timeout.connect(self._on_pulse_timer)
+        self._pulse_phase = 0.0  # 0.0 to 1.0, tracks animation phase
+
+    def _on_pulse_timer(self):
+        """Handle pulsation animation for record button."""
+        import math
+        # Increment phase (complete cycle every ~2 seconds at 50ms intervals)
+        self._pulse_phase += 0.025
+        if self._pulse_phase > 1.0:
+            self._pulse_phase = 0.0
+
+        # Use sine wave for smooth pulsation (0.0 to 1.0)
+        pulse = (math.sin(self._pulse_phase * 2 * math.pi) + 1) / 2
+
+        # Interpolate between dim red and bright red
+        # Dim: #cc0000, Bright: #ff4444
+        r_dim, g_dim, b_dim = 0xcc, 0x00, 0x00
+        r_bright, g_bright, b_bright = 0xff, 0x44, 0x44
+
+        r = int(r_dim + (r_bright - r_dim) * pulse)
+        g = int(g_dim + (g_bright - g_dim) * pulse)
+        b = int(b_dim + (b_bright - b_dim) * pulse)
+
+        # Border brightness also pulses
+        border_dim = 0x99
+        border_bright = 0xff
+        border_val = int(border_dim + (border_bright - border_dim) * pulse)
+
+        style = f"""
+            QPushButton {{
+                background-color: qlineargradient(x1:0, y1:0, x2:0, y2:1,
+                    stop:0 #{r:02x}{g:02x}{b:02x}, stop:1 #{max(r-30,0):02x}{max(g-30,0):02x}{max(b-30,0):02x});
+                color: white;
+                border: 3px solid #{border_val:02x}{border_val//3:02x}{border_val//3:02x};
+                border-bottom: 4px solid #{max(r-60,0):02x}0000;
+                border-radius: 6px;
+                font-weight: bold;
+                font-size: 24px;
+                padding: 0 8px;
+            }}
+        """
+        self.record_btn.setStyleSheet(style)
+
+    def _start_recording_visual_effects(self):
+        """Start pulsating record button animation."""
+        # Start pulsation animation (50ms interval = 20 fps)
+        self._pulse_phase = 0.0
+        self._pulse_timer.start(50)
+
+    def _stop_recording_visual_effects(self):
+        """Stop pulsating record button animation."""
+        # Stop pulsation animation
+        self._pulse_timer.stop()
 
     def setup_shortcuts(self):
         """Set up keyboard shortcuts."""
@@ -1713,16 +1777,16 @@ class MainWindow(QMainWindow):
 
             self.recorder.start_recording()
             self.record_btn.setText("●")
-            self.record_btn.setStyleSheet(self._record_btn_recording_style)
             self.pause_btn.setEnabled(True)
             self.append_btn.setEnabled(False)  # Disable append while recording
             self.stop_btn.setEnabled(True)  # Can stop recording to cache
             self.transcribe_btn.setEnabled(True)  # Can stop and transcribe immediately
-            self.transcribe_btn.setStyleSheet(self._transcribe_btn_recording_style)  # Yellow while recording
             self.delete_btn.setEnabled(True)  # Can delete current recording
             self.status_label.setText("Recording...")
             self.status_label.setStyleSheet("color: rgba(220, 53, 69, 0.7); font-size: 11px;")
             self.timer.start(100)
+            # Start visual effects (pulsating record button, grayscale other controls)
+            self._start_recording_visual_effects()
             # Update tray to recording state
             self._set_tray_state('recording')
 
@@ -1773,6 +1837,9 @@ class MainWindow(QMainWindow):
 
         # Mark that we have cached audio
         self.has_cached_audio = True
+
+        # Stop visual effects (pulsating, grayscale)
+        self._stop_recording_visual_effects()
 
         # Update UI to "stopped with cached audio" state
         self.record_btn.setText("●")
@@ -1952,6 +2019,8 @@ class MainWindow(QMainWindow):
 
     def _show_retry_ui(self):
         """Show UI state for retry available."""
+        # Stop visual effects if somehow still running
+        self._stop_recording_visual_effects()
         self.record_btn.setText("●")
         self.record_btn.setStyleSheet(self._record_btn_idle_style)
         self.record_btn.setEnabled(True)
@@ -1993,6 +2062,8 @@ class MainWindow(QMainWindow):
                 get_feedback().play_stop_beep()
 
             self.timer.stop()
+            # Stop visual effects (pulsating, grayscale)
+            self._stop_recording_visual_effects()
             audio_data = self.recorder.stop_recording()
 
             # If we have accumulated segments, add current recording and combine all
@@ -2026,6 +2097,7 @@ class MainWindow(QMainWindow):
         self.has_cached_audio = False
 
         self.record_btn.setText("●")
+        self.record_btn.setStyleSheet(self._record_btn_idle_style)  # Reset to idle color
         self.record_btn.setEnabled(False)
         self.pause_btn.setEnabled(False)
         self.append_btn.setEnabled(False)
@@ -2236,7 +2308,59 @@ class MainWindow(QMainWindow):
             QTimer.singleShot(3000, lambda: self._set_tray_state('idle') if self._tray_state in complete_states else None)
 
     def on_transcription_error(self, error: str):
-        """Handle transcription error."""
+        """Handle transcription error with automatic failover support."""
+        # Check if we should attempt failover
+        should_failover = (
+            self.config.failover_enabled
+            and not self._failover_in_progress
+            and hasattr(self, 'last_audio_data')
+            and self.last_audio_data
+            and is_preset_configured(self.config, "fallback")
+        )
+
+        if should_failover:
+            # Attempt failover to the fallback model
+            fallback = get_fallback_provider_and_model(self.config)
+            if fallback:
+                fallback_provider, fallback_model = fallback
+                fallback_api_key = (
+                    self.config.gemini_api_key if fallback_provider == "gemini"
+                    else self.config.openrouter_api_key
+                )
+
+                if fallback_api_key:
+                    print(f"Primary transcription failed. Attempting failover to {fallback_provider}/{fallback_model}...")
+                    self.status_label.setText(f"Failover: trying {self.config.fallback_name or 'fallback'}...")
+                    self.status_label.setStyleSheet("color: rgba(255, 165, 0, 0.9); font-size: 11px;")  # Orange for failover
+                    self.status_label.show()
+
+                    # Set flag to prevent infinite failover loop
+                    self._failover_in_progress = True
+
+                    # Clean up the failed worker
+                    self._cleanup_worker('worker')
+
+                    # Start failover transcription
+                    audio_duration = getattr(self, 'last_audio_duration', None)
+                    cleanup_prompt = build_cleanup_prompt(self.config, audio_duration_seconds=audio_duration)
+                    self.worker = TranscriptionWorker(
+                        self.last_audio_data,
+                        fallback_provider,
+                        fallback_api_key,
+                        fallback_model,
+                        cleanup_prompt,
+                        vad_enabled=self.config.vad_enabled,
+                    )
+                    self.worker.finished.connect(self._on_failover_complete)
+                    self.worker.error.connect(self._on_failover_error)
+                    self.worker.status.connect(self.on_worker_status)
+                    self.worker.vad_complete.connect(self.on_vad_complete)
+                    self.worker.start()
+                    return  # Don't show error yet, wait for failover result
+
+        # No failover possible or failover disabled - show error
+        self._failover_in_progress = False  # Reset flag
+
         # TTS announcement for error
         if self.config.audio_feedback_mode == "tts":
             get_announcer().announce_error()
@@ -2255,6 +2379,44 @@ class MainWindow(QMainWindow):
         else:
             # No audio to retry with - show error and reset normally
             QMessageBox.critical(self, "Transcription Error", error)
+            self.reset_ui()
+            self._set_tray_state('idle')
+
+    def _on_failover_complete(self, result: TranscriptionResult):
+        """Handle successful failover transcription."""
+        self._failover_in_progress = False
+        print(f"Failover transcription successful!")
+        # Delegate to normal completion handler
+        self.on_transcription_complete(result)
+
+    def _on_failover_error(self, error: str):
+        """Handle failover transcription error."""
+        self._failover_in_progress = False
+        print(f"Failover also failed: {error}")
+
+        # Both primary and fallback failed - show error
+        # TTS announcement for error
+        if self.config.audio_feedback_mode == "tts":
+            get_announcer().announce_error()
+
+        if hasattr(self, 'last_audio_data') and self.last_audio_data:
+            self.has_failed_audio = True
+            QMessageBox.warning(
+                self,
+                "Transcription Failed",
+                f"Both primary and fallback models failed.\n\n"
+                f"Error: {error}\n\n"
+                f"Your audio has been preserved. Click the transcribe button (⬆) to retry, "
+                "or delete to discard.",
+            )
+            self._show_retry_ui()
+            self._set_tray_state('idle')
+        else:
+            QMessageBox.critical(
+                self,
+                "Transcription Error",
+                f"Both primary and fallback models failed.\n\nError: {error}"
+            )
             self.reset_ui()
             self._set_tray_state('idle')
 
@@ -2347,12 +2509,12 @@ class MainWindow(QMainWindow):
         preset = self.config.active_model_preset
 
         # Build display text
-        if preset == "favorite_1" and self.config.favorite_1_name:
-            preset_name = self.config.favorite_1_name
-        elif preset == "favorite_2" and self.config.favorite_2_name:
-            preset_name = self.config.favorite_2_name
+        if preset == "primary" and self.config.primary_name:
+            preset_name = self.config.primary_name
+        elif preset == "fallback" and self.config.fallback_name:
+            preset_name = self.config.fallback_name
         else:
-            # Default - just show model name
+            # Fallback - just show model name
             preset_name = get_model_display_name(model, provider)
 
         # Truncate if too long
@@ -2362,9 +2524,10 @@ class MainWindow(QMainWindow):
         # Set button text (no indicator - click shows menu)
         self.model_selector_btn.setText(f"{preset_name}")
         self.model_selector_btn.setToolTip(
-            f"Preset: {preset.replace('_', ' ').title()}\n"
+            f"Preset: {preset.title()}\n"
             f"Provider: {provider.title()}\n"
             f"Model: {model}\n"
+            f"Failover: {'Enabled' if self.config.failover_enabled else 'Disabled'}\n"
             f"Click to change"
         )
 
@@ -2380,41 +2543,29 @@ class MainWindow(QMainWindow):
         self.model_preset_action_group = QActionGroup(self)
         self.model_preset_action_group.setExclusive(True)
 
-        # Default action (always present)
-        default_action = QAction("Default", self)
-        default_action.setCheckable(True)
-        default_action.setData("default")
-        default_action.triggered.connect(lambda: self._on_model_preset_changed("default"))
-        self.model_preset_action_group.addAction(default_action)
-        self.model_preset_menu.addAction(default_action)
-        self.model_preset_actions["default"] = default_action
+        # Primary action (always present - uses primary_name for display)
+        primary_display = self.config.primary_name or "Primary"
+        primary_action = QAction(f"● {primary_display}", self)
+        primary_action.setCheckable(True)
+        primary_action.setData("primary")
+        primary_action.triggered.connect(lambda: self._on_model_preset_changed("primary"))
+        self.model_preset_action_group.addAction(primary_action)
+        self.model_preset_menu.addAction(primary_action)
+        self.model_preset_actions["primary"] = primary_action
 
-        # Favorite 1 (only if configured)
-        if is_favorite_configured(self.config, 1):
-            self.model_preset_menu.addSeparator()
-            fav1_action = QAction(self.config.favorite_1_name, self)
-            fav1_action.setCheckable(True)
-            fav1_action.setData("favorite_1")
-            fav1_action.triggered.connect(lambda: self._on_model_preset_changed("favorite_1"))
-            self.model_preset_action_group.addAction(fav1_action)
-            self.model_preset_menu.addAction(fav1_action)
-            self.model_preset_actions["favorite_1"] = fav1_action
-
-        # Favorite 2 (only if configured)
-        if is_favorite_configured(self.config, 2):
-            if not is_favorite_configured(self.config, 1):
-                self.model_preset_menu.addSeparator()
-            fav2_action = QAction(self.config.favorite_2_name, self)
-            fav2_action.setCheckable(True)
-            fav2_action.setData("favorite_2")
-            fav2_action.triggered.connect(lambda: self._on_model_preset_changed("favorite_2"))
-            self.model_preset_action_group.addAction(fav2_action)
-            self.model_preset_menu.addAction(fav2_action)
-            self.model_preset_actions["favorite_2"] = fav2_action
+        # Fallback action (always present - uses fallback_name for display)
+        fallback_display = self.config.fallback_name or "Fallback"
+        fallback_action = QAction(f"○ {fallback_display}", self)
+        fallback_action.setCheckable(True)
+        fallback_action.setData("fallback")
+        fallback_action.triggered.connect(lambda: self._on_model_preset_changed("fallback"))
+        self.model_preset_action_group.addAction(fallback_action)
+        self.model_preset_menu.addAction(fallback_action)
+        self.model_preset_actions["fallback"] = fallback_action
 
         # Settings shortcut
         self.model_preset_menu.addSeparator()
-        settings_action = QAction("Configure Favorites...", self)
+        settings_action = QAction("Configure Models...", self)
         settings_action.triggered.connect(self.show_settings)
         self.model_preset_menu.addAction(settings_action)
 
@@ -2483,6 +2634,8 @@ class MainWindow(QMainWindow):
         Note: Does not change tray state - caller is responsible for setting
         appropriate tray state (idle, complete, etc.) after calling this.
         """
+        # Stop visual effects (pulsating, grayscale)
+        self._stop_recording_visual_effects()
         self.record_btn.setText("●")
         self.record_btn.setStyleSheet(self._record_btn_idle_style)
         self.record_btn.setEnabled(True)
@@ -2525,6 +2678,8 @@ class MainWindow(QMainWindow):
         self.timer.stop()
         if self.recorder.is_recording or self.recorder.is_paused:
             self.recorder.stop_recording()
+            # Stop visual effects (pulsating, grayscale)
+            self._stop_recording_visual_effects()
         self.recorder.clear()
 
         # Clear accumulated segments

@@ -882,104 +882,150 @@ class ModelSelectionWidget(QWidget):
         layout.addWidget(selection_group)
 
         # ==========================================================================
-        # FAVORITES SECTION
+        # PRIMARY & FALLBACK SECTION
         # ==========================================================================
-        favorites_group = QGroupBox("Favorites (Quick Switch)")
-        favorites_layout = QVBoxLayout(favorites_group)
-        favorites_layout.setSpacing(12)
+        presets_group = QGroupBox("Primary & Fallback Models")
+        presets_layout = QVBoxLayout(presets_group)
+        presets_layout.setSpacing(12)
 
-        favorites_desc = QLabel(
-            "Configure up to two favorite model presets for quick switching from the main UI."
+        presets_desc = QLabel(
+            "Configure your primary and fallback models. If failover is enabled, "
+            "the fallback model is used automatically when the primary fails."
         )
-        favorites_desc.setWordWrap(True)
-        favorites_desc.setStyleSheet("color: #666; font-size: 11px; margin-bottom: 8px;")
-        favorites_layout.addWidget(favorites_desc)
+        presets_desc.setWordWrap(True)
+        presets_desc.setStyleSheet("color: #666; font-size: 11px; margin-bottom: 8px;")
+        presets_layout.addWidget(presets_desc)
 
-        # Store references for favorites UI elements
-        self._favorite_widgets = {}
+        # Provider recommendation note
+        provider_note_frame = QFrame()
+        provider_note_frame.setFrameShape(QFrame.Shape.StyledPanel)
+        provider_note_frame.setStyleSheet("""
+            QFrame {
+                background-color: #fff3cd;
+                border: 1px solid #ffc107;
+                border-radius: 4px;
+            }
+        """)
+        provider_note_layout = QHBoxLayout(provider_note_frame)
+        provider_note_layout.setContentsMargins(10, 8, 10, 8)
+        provider_note_icon = QLabel("💡")
+        provider_note_icon.setStyleSheet("background: transparent; border: none; font-size: 14px;")
+        provider_note_layout.addWidget(provider_note_icon)
+        provider_note_text = QLabel(
+            "<b>Tip:</b> For maximum resilience, use different providers for primary and fallback. "
+            "This protects against provider-level outages."
+        )
+        provider_note_text.setWordWrap(True)
+        provider_note_text.setStyleSheet("background: transparent; border: none; color: #856404; font-size: 11px;")
+        provider_note_layout.addWidget(provider_note_text, 1)
+        presets_layout.addWidget(provider_note_frame)
 
-        # Style for labels inside favorites (explicit font size to avoid scaling issues)
-        fav_label_style = "font-size: 13px; background: transparent; border: none;"
+        # Failover checkbox
+        self.failover_checkbox = QCheckBox("Enable automatic failover")
+        self.failover_checkbox.setToolTip(
+            "When enabled, if transcription fails with the primary model, "
+            "the app will automatically retry with the fallback model."
+        )
+        self.failover_checkbox.setChecked(self.config.failover_enabled)
+        self.failover_checkbox.stateChanged.connect(self._on_failover_changed)
+        presets_layout.addWidget(self.failover_checkbox)
 
-        # Create Favorite 1 and Favorite 2 sections
-        for fav_num in [1, 2]:
-            fav_frame = QFrame()
-            fav_frame.setFrameShape(QFrame.Shape.StyledPanel)
-            fav_frame.setStyleSheet("""
+        # Store references for preset UI elements
+        self._preset_widgets = {}
+
+        # Style for labels inside presets (explicit font size to avoid scaling issues)
+        preset_label_style = "font-size: 13px; background: transparent; border: none;"
+
+        # Create Primary and Fallback sections
+        for preset_key in ["primary", "fallback"]:
+            preset_frame = QFrame()
+            preset_frame.setFrameShape(QFrame.Shape.StyledPanel)
+            preset_frame.setStyleSheet("""
                 QFrame {
                     background-color: #f8f9fa;
                     border: 1px solid #dee2e6;
                     border-radius: 4px;
                 }
             """)
-            fav_inner_layout = QVBoxLayout(fav_frame)
-            fav_inner_layout.setSpacing(10)
-            fav_inner_layout.setContentsMargins(12, 10, 12, 10)
+            preset_inner_layout = QVBoxLayout(preset_frame)
+            preset_inner_layout.setSpacing(10)
+            preset_inner_layout.setContentsMargins(12, 10, 12, 10)
 
-            # Favorite header
-            fav_header = QLabel(f"Favorite {fav_num}")
-            fav_header.setStyleSheet("font-size: 14px; font-weight: bold; background: transparent; border: none;")
-            fav_inner_layout.addWidget(fav_header)
+            # Preset header
+            header_text = "Primary Model" if preset_key == "primary" else "Fallback Model"
+            preset_header = QLabel(header_text)
+            preset_header.setStyleSheet("font-size: 14px; font-weight: bold; background: transparent; border: none;")
+            preset_inner_layout.addWidget(preset_header)
 
             # Name field
             name_layout = QHBoxLayout()
             name_label = QLabel("Name:")
-            name_label.setStyleSheet(fav_label_style)
+            name_label.setStyleSheet(preset_label_style)
             name_layout.addWidget(name_label)
             name_edit = QLineEdit()
             name_edit.setPlaceholderText(f"e.g., Flash Latest, Budget, Pro...")
             name_edit.setMaximumWidth(200)
-            current_name = getattr(self.config, f"favorite_{fav_num}_name", "")
+            current_name = getattr(self.config, f"{preset_key}_name", "")
             name_edit.setText(current_name)
-            name_edit.textChanged.connect(lambda text, n=fav_num: self._on_favorite_name_changed(n, text))
+            name_edit.textChanged.connect(lambda text, k=preset_key: self._on_preset_name_changed(k, text))
             name_layout.addWidget(name_edit)
             name_layout.addStretch()
-            fav_inner_layout.addLayout(name_layout)
+            preset_inner_layout.addLayout(name_layout)
 
             # Provider dropdown
             provider_layout = QHBoxLayout()
             provider_label = QLabel("Provider:")
-            provider_label.setStyleSheet(fav_label_style)
+            provider_label.setStyleSheet(preset_label_style)
             provider_layout.addWidget(provider_label)
             provider_combo = QComboBox()
             provider_combo.setIconSize(QSize(16, 16))
             provider_combo.addItem(get_provider_icon("google"), "Google Gemini", "gemini")
             provider_combo.addItem(get_provider_icon("openrouter"), "OpenRouter", "openrouter")
-            current_provider = getattr(self.config, f"favorite_{fav_num}_provider", "") or "gemini"
+            current_provider = getattr(self.config, f"{preset_key}_provider", "") or "gemini"
             idx = provider_combo.findData(current_provider)
             if idx >= 0:
                 provider_combo.setCurrentIndex(idx)
-            provider_combo.currentIndexChanged.connect(lambda idx, n=fav_num: self._on_favorite_provider_changed(n))
+            provider_combo.currentIndexChanged.connect(lambda idx, k=preset_key: self._on_preset_provider_changed(k))
             provider_layout.addWidget(provider_combo)
             provider_layout.addStretch()
-            fav_inner_layout.addLayout(provider_layout)
+            preset_inner_layout.addLayout(provider_layout)
 
             # Model dropdown
             model_layout = QHBoxLayout()
             model_label = QLabel("Model:")
-            model_label.setStyleSheet(fav_label_style)
+            model_label.setStyleSheet(preset_label_style)
             model_layout.addWidget(model_label)
             model_combo = QComboBox()
             model_combo.setIconSize(QSize(16, 16))
             model_combo.setMinimumWidth(200)
-            model_combo.currentIndexChanged.connect(lambda idx, n=fav_num: self._on_favorite_model_changed(n))
+            model_combo.currentIndexChanged.connect(lambda idx, k=preset_key: self._on_preset_model_changed(k))
             model_layout.addWidget(model_combo)
             model_layout.addStretch()
-            fav_inner_layout.addLayout(model_layout)
+            preset_inner_layout.addLayout(model_layout)
 
             # Store widget references
-            self._favorite_widgets[fav_num] = {
+            self._preset_widgets[preset_key] = {
                 "name": name_edit,
                 "provider": provider_combo,
                 "model": model_combo,
             }
 
-            favorites_layout.addWidget(fav_frame)
+            presets_layout.addWidget(preset_frame)
 
             # Populate model dropdown based on current provider
-            self._update_favorite_model_combo(fav_num)
+            self._update_preset_model_combo(preset_key)
 
-        layout.addWidget(favorites_group)
+        # Swap button
+        swap_layout = QHBoxLayout()
+        swap_layout.addStretch()
+        self.swap_btn = QPushButton("⇅ Swap Primary & Fallback")
+        self.swap_btn.setToolTip("Exchange the primary and fallback configurations")
+        self.swap_btn.clicked.connect(self._swap_presets)
+        swap_layout.addWidget(self.swap_btn)
+        swap_layout.addStretch()
+        presets_layout.addLayout(swap_layout)
+
+        layout.addWidget(presets_group)
         layout.addStretch()
 
     def _update_model_combo(self):
@@ -1076,37 +1122,42 @@ class ModelSelectionWidget(QWidget):
         self._update_tier_buttons()
 
     # ==========================================================================
-    # FAVORITES HANDLERS
+    # PRESET (PRIMARY/FALLBACK) HANDLERS
     # ==========================================================================
 
-    def _on_favorite_name_changed(self, fav_num: int, text: str):
-        """Handle favorite name change."""
-        setattr(self.config, f"favorite_{fav_num}_name", text)
+    def _on_failover_changed(self, state: int):
+        """Handle failover checkbox change."""
+        self.config.failover_enabled = state == 2  # Qt.CheckState.Checked = 2
         save_config(self.config)
 
-    def _on_favorite_provider_changed(self, fav_num: int):
-        """Handle favorite provider change."""
-        widgets = self._favorite_widgets.get(fav_num)
+    def _on_preset_name_changed(self, preset_key: str, text: str):
+        """Handle preset name change."""
+        setattr(self.config, f"{preset_key}_name", text)
+        save_config(self.config)
+
+    def _on_preset_provider_changed(self, preset_key: str):
+        """Handle preset provider change."""
+        widgets = self._preset_widgets.get(preset_key)
         if not widgets:
             return
         provider = widgets["provider"].currentData()
-        setattr(self.config, f"favorite_{fav_num}_provider", provider)
-        self._update_favorite_model_combo(fav_num)
+        setattr(self.config, f"{preset_key}_provider", provider)
+        self._update_preset_model_combo(preset_key)
         save_config(self.config)
 
-    def _on_favorite_model_changed(self, fav_num: int):
-        """Handle favorite model change."""
-        widgets = self._favorite_widgets.get(fav_num)
+    def _on_preset_model_changed(self, preset_key: str):
+        """Handle preset model change."""
+        widgets = self._preset_widgets.get(preset_key)
         if not widgets:
             return
         model = widgets["model"].currentData()
         if model:  # Only save if valid model selected
-            setattr(self.config, f"favorite_{fav_num}_model", model)
+            setattr(self.config, f"{preset_key}_model", model)
             save_config(self.config)
 
-    def _update_favorite_model_combo(self, fav_num: int):
-        """Update the model dropdown for a favorite based on its provider."""
-        widgets = self._favorite_widgets.get(fav_num)
+    def _update_preset_model_combo(self, preset_key: str):
+        """Update the model dropdown for a preset based on its provider."""
+        widgets = self._preset_widgets.get(preset_key)
         if not widgets:
             return
 
@@ -1128,13 +1179,53 @@ class ModelSelectionWidget(QWidget):
             model_combo.addItem(model_icon, display_name, model_id)
 
         # Select current model if set
-        current_model = getattr(self.config, f"favorite_{fav_num}_model", "")
+        current_model = getattr(self.config, f"{preset_key}_model", "")
         if current_model:
             idx = model_combo.findData(current_model)
             if idx >= 0:
                 model_combo.setCurrentIndex(idx)
 
         model_combo.blockSignals(False)
+
+    def _swap_presets(self):
+        """Swap primary and fallback configurations."""
+        # Store current primary values
+        old_primary_name = self.config.primary_name
+        old_primary_provider = self.config.primary_provider
+        old_primary_model = self.config.primary_model
+
+        # Move fallback to primary
+        self.config.primary_name = self.config.fallback_name
+        self.config.primary_provider = self.config.fallback_provider
+        self.config.primary_model = self.config.fallback_model
+
+        # Move old primary to fallback
+        self.config.fallback_name = old_primary_name
+        self.config.fallback_provider = old_primary_provider
+        self.config.fallback_model = old_primary_model
+
+        # Save config
+        save_config(self.config)
+
+        # Update UI widgets
+        for preset_key in ["primary", "fallback"]:
+            widgets = self._preset_widgets.get(preset_key)
+            if widgets:
+                # Update name field
+                widgets["name"].blockSignals(True)
+                widgets["name"].setText(getattr(self.config, f"{preset_key}_name", ""))
+                widgets["name"].blockSignals(False)
+
+                # Update provider dropdown
+                widgets["provider"].blockSignals(True)
+                provider = getattr(self.config, f"{preset_key}_provider", "gemini")
+                idx = widgets["provider"].findData(provider)
+                if idx >= 0:
+                    widgets["provider"].setCurrentIndex(idx)
+                widgets["provider"].blockSignals(False)
+
+                # Update model dropdown
+                self._update_preset_model_combo(preset_key)
 
 
 class SettingsWidget(QWidget):
@@ -1196,8 +1287,8 @@ class SettingsDialog(QDialog):
 
     def _init_ui(self):
         self.setWindowTitle("Settings")
-        self.setMinimumSize(700, 550)
-        self.resize(750, 600)
+        self.setMinimumSize(780, 620)
+        self.resize(820, 680)
 
         layout = QVBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)

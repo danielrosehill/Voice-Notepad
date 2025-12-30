@@ -60,8 +60,8 @@ class AnalyticsDialog(QDialog):
 
     def _init_ui(self):
         self.setWindowTitle("Analytics")
-        self.setMinimumSize(600, 450)
-        self.resize(700, 550)
+        self.setMinimumSize(720, 550)
+        self.resize(780, 620)
 
         layout = QVBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)

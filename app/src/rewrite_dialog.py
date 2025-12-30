@@ -17,7 +17,8 @@ class RewriteDialog(QDialog):
     def __init__(self, parent=None):
         super().__init__(parent)
         self.setWindowTitle("Rewrite Transcript")
-        self.setMinimumSize(500, 300)
+        self.setMinimumSize(560, 350)
+        self.resize(600, 380)
         self.instruction = ""
 
         self.setup_ui()

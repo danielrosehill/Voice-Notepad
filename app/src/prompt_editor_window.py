@@ -51,8 +51,8 @@ class PromptEditDialog(QDialog):
         self.initial_type = prompt.prompt_type if prompt else prompt_type
 
         self.setWindowTitle("New Prompt" if self.is_new else f"Edit: {prompt.name}")
-        self.setMinimumSize(500, 550)
-        self.resize(550, 650)
+        self.setMinimumSize(560, 580)
+        self.resize(600, 680)
 
         self._init_ui()
         if prompt:
@@ -297,8 +297,8 @@ class PromptEditorWindow(QMainWindow):
         self.library = PromptLibrary(config_dir)
 
         self.setWindowTitle("Prompt Manager")
-        self.setMinimumSize(800, 700)
-        self.resize(900, 800)
+        self.setMinimumSize(880, 720)
+        self.resize(950, 820)
 
         # Track UI elements
         self.element_checkboxes = {}  # element_key -> QCheckBox

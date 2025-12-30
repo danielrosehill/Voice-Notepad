@@ -17,7 +17,7 @@ from pathlib import Path
 import re
 
 # Fallback version (updated by release.sh)
-_FALLBACK_VERSION = "1.9.12"
+_FALLBACK_VERSION = "1.9.15"
 
 
 def get_version() -> str:
@@ -405,8 +405,8 @@ class AboutDialog(QDialog):
 
     def _init_ui(self):
         self.setWindowTitle("About Voice Notepad")
-        self.setMinimumSize(450, 400)
-        self.resize(500, 600)
+        self.setMinimumSize(500, 450)
+        self.resize(550, 650)
 
         layout = QVBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)

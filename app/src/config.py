@@ -100,19 +100,31 @@ class Config:
     gemini_model: str = "gemini-flash-latest"
     openrouter_model: str = "google/gemini-2.5-flash"
 
-    # Model favorites - quick presets for switching between commonly used models
-    # Each favorite stores a name (for display), provider, and model
-    # Empty name means the favorite is not configured
+    # Primary and Fallback models - quick presets for switching with automatic failover
+    # Primary: Your main transcription model (default: Gemini Flash Latest)
+    # Fallback: Used automatically if primary fails (default: OpenRouter Gemini 2.5 Flash)
+    # Using different providers for primary/fallback is recommended for resilience
+    primary_name: str = "Gemini Flash (Latest)"
+    primary_provider: str = "gemini"
+    primary_model: str = "gemini-flash-latest"
+
+    fallback_name: str = "Gemini 2.5 Flash (OpenRouter)"
+    fallback_provider: str = "openrouter"
+    fallback_model: str = "google/gemini-2.5-flash"
+
+    # Enable automatic failover to fallback model if primary fails
+    failover_enabled: bool = True
+
+    # Which model preset is currently active: "primary" or "fallback"
+    active_model_preset: str = "primary"
+
+    # Legacy fields for migration
     favorite_1_name: str = ""
     favorite_1_provider: str = ""
     favorite_1_model: str = ""
-
     favorite_2_name: str = ""
     favorite_2_provider: str = ""
     favorite_2_model: str = ""
-
-    # Which model preset is currently active: "default", "favorite_1", "favorite_2"
-    active_model_preset: str = "default"
 
     # Audio settings
     # Legacy field - kept for backwards compatibility, migrated to preferred_mic_name
@@ -365,6 +377,33 @@ def _apply_migrations(config: Config) -> Config:
         elif config.tts_announcements_enabled:
             config.audio_feedback_mode = "tts"
 
+    # Migration: favorites -> primary/fallback
+    # If user had favorites configured, migrate them to primary/fallback
+    if config.favorite_1_name and config.primary_name == "Gemini Flash (Latest)":
+        # User had favorite_1 configured, migrate to primary
+        config.primary_name = config.favorite_1_name
+        config.primary_provider = config.favorite_1_provider or "gemini"
+        config.primary_model = config.favorite_1_model or "gemini-flash-latest"
+        # Clear legacy field
+        config.favorite_1_name = ""
+
+    if config.favorite_2_name and config.fallback_name == "Gemini 2.5 Flash (OpenRouter)":
+        # User had favorite_2 configured, migrate to fallback
+        config.fallback_name = config.favorite_2_name
+        config.fallback_provider = config.favorite_2_provider or "openrouter"
+        config.fallback_model = config.favorite_2_model or "google/gemini-2.5-flash"
+        # Clear legacy field
+        config.favorite_2_name = ""
+
+    # Migration: active_model_preset "favorite_1" -> "primary", "favorite_2" -> "fallback"
+    if config.active_model_preset == "favorite_1":
+        config.active_model_preset = "primary"
+    elif config.active_model_preset == "favorite_2":
+        config.active_model_preset = "fallback"
+    elif config.active_model_preset == "default":
+        # "default" now maps to "primary"
+        config.active_model_preset = "primary"
+
     return config
 
 
@@ -488,21 +527,28 @@ def load_env_keys(config: Config) -> Config:
 # =============================================================================
 
 
-def is_favorite_configured(config: Config, favorite_num: int) -> bool:
-    """Check if a favorite preset is configured (has a name set).
+def is_preset_configured(config: Config, preset: str) -> bool:
+    """Check if a model preset is configured (has a name set).
 
     Args:
         config: Configuration object
-        favorite_num: 1 or 2
+        preset: "primary" or "fallback"
 
     Returns:
-        True if the favorite has a name configured
+        True if the preset has a name configured
     """
-    if favorite_num == 1:
-        return bool(config.favorite_1_name)
-    elif favorite_num == 2:
-        return bool(config.favorite_2_name)
+    if preset == "primary":
+        return bool(config.primary_name)
+    elif preset == "fallback":
+        return bool(config.fallback_name)
     return False
+
+
+# Legacy alias for backwards compatibility
+def is_favorite_configured(config: Config, favorite_num: int) -> bool:
+    """Legacy function - use is_preset_configured instead."""
+    preset = "primary" if favorite_num == 1 else "fallback"
+    return is_preset_configured(config, preset)
 
 
 def get_active_provider_and_model(config: Config) -> tuple[str, str]:
@@ -510,16 +556,20 @@ def get_active_provider_and_model(config: Config) -> tuple[str, str]:
 
     Returns:
         Tuple of (provider, model) based on active_model_preset.
-        Falls back to default if the active preset is not configured.
+        Falls back to primary if the active preset is not configured.
     """
     preset = config.active_model_preset
 
-    if preset == "favorite_1" and is_favorite_configured(config, 1):
-        return (config.favorite_1_provider, config.favorite_1_model)
-    elif preset == "favorite_2" and is_favorite_configured(config, 2):
-        return (config.favorite_2_provider, config.favorite_2_model)
+    if preset == "primary" and is_preset_configured(config, "primary"):
+        return (config.primary_provider, config.primary_model)
+    elif preset == "fallback" and is_preset_configured(config, "fallback"):
+        return (config.fallback_provider, config.fallback_model)
 
-    # Default: use selected_provider and corresponding model
+    # Default to primary
+    if is_preset_configured(config, "primary"):
+        return (config.primary_provider, config.primary_model)
+
+    # Ultimate fallback: use selected_provider and corresponding model
     provider = config.selected_provider
     if provider == "gemini":
         model = config.gemini_model
@@ -530,22 +580,33 @@ def get_active_provider_and_model(config: Config) -> tuple[str, str]:
     return (provider, model)
 
 
+def get_fallback_provider_and_model(config: Config) -> tuple[str, str] | None:
+    """Get the fallback provider and model if configured.
+
+    Returns:
+        Tuple of (provider, model) for the fallback, or None if not configured.
+    """
+    if is_preset_configured(config, "fallback"):
+        return (config.fallback_provider, config.fallback_model)
+    return None
+
+
 def get_preset_display_name(config: Config, preset: str) -> str:
     """Get the display name for a model preset.
 
     Args:
         config: Configuration object
-        preset: "default", "favorite_1", or "favorite_2"
+        preset: "primary" or "fallback"
 
     Returns:
-        Display name (e.g., "Default", "Flash Latest", etc.)
+        Display name (e.g., "Gemini Flash (Latest)", etc.)
     """
-    if preset == "favorite_1" and config.favorite_1_name:
-        return config.favorite_1_name
-    elif preset == "favorite_2" and config.favorite_2_name:
-        return config.favorite_2_name
+    if preset == "primary" and config.primary_name:
+        return config.primary_name
+    elif preset == "fallback" and config.fallback_name:
+        return config.fallback_name
     else:
-        # For default, show the model display name
+        # For unknown preset, show the active model display name
         provider, model = get_active_provider_and_model(config)
         return get_model_display_name(model, provider)
 
