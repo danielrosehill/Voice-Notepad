@@ -85,7 +85,7 @@ class TTSAnnouncer:
             # Transcription states
             "transcribing", "complete", "error",
             # Output modes
-            "text_in_app", "text_on_clipboard", "text_injected", "injection_failed",
+            "text_in_app", "text_on_clipboard", "clipboard", "text_injected", "injection_failed",
             # Prompt stack changes
             "format_updated", "format_inference", "tone_updated", "style_updated", "verbatim_mode", "general_mode",
             # Audio feedback mode changes
@@ -237,7 +237,7 @@ class TTSAnnouncer:
 
     def announce_text_on_clipboard(self) -> None:
         """Announce: Text copied to clipboard."""
-        self._play_async("text_on_clipboard")
+        self._play_async("clipboard")
 
     def announce_text_injected(self) -> None:
         """Announce: Text injected at cursor."""

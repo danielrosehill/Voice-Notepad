@@ -51,15 +51,34 @@ from PyQt6.QtWidgets import QGraphicsOpacityEffect
 from PyQt6.QtWidgets import QCompleter, QToolButton
 
 from .config import (
-    Config, load_config, save_config, load_env_keys, CONFIG_DIR,
-    GEMINI_MODELS, OPENROUTER_MODELS,
-    MODEL_TIERS, build_cleanup_prompt, get_model_display_name,
-    FORMAT_TEMPLATES, FORMAT_DISPLAY_NAMES, FORMALITY_DISPLAY_NAMES, VERBOSITY_DISPLAY_NAMES, EMAIL_SIGNOFFS,
-    is_favorite_configured, get_active_provider_and_model, get_fallback_provider_and_model, is_preset_configured,
+    Config,
+    load_config,
+    save_config,
+    load_env_keys,
+    CONFIG_DIR,
+    GEMINI_MODELS,
+    OPENROUTER_MODELS,
+    MODEL_TIERS,
+    build_cleanup_prompt,
+    get_model_display_name,
+    FORMAT_TEMPLATES,
+    FORMAT_DISPLAY_NAMES,
+    FORMALITY_DISPLAY_NAMES,
+    VERBOSITY_DISPLAY_NAMES,
+    EMAIL_SIGNOFFS,
+    is_favorite_configured,
+    get_active_provider_and_model,
+    get_fallback_provider_and_model,
+    is_preset_configured,
 )
 from .audio_recorder import AudioRecorder
 from .transcription import get_client, TranscriptionResult
-from .audio_processor import compress_audio_for_api, archive_audio, get_audio_info, combine_wav_segments
+from .audio_processor import (
+    compress_audio_for_api,
+    archive_audio,
+    get_audio_info,
+    combine_wav_segments,
+)
 from .markdown_widget import MarkdownTextWidget
 from .database_mongo import get_db, AUDIO_ARCHIVE_DIR
 from .vad_processor import remove_silence, is_vad_available
@@ -179,7 +198,9 @@ class TranscriptionWorker(QThread):
                     self.vad_complete.emit(orig_dur, vad_dur)
                     if vad_dur < orig_dur:
                         reduction = (1 - vad_dur / orig_dur) * 100
-                        print(f"VAD: Reduced audio from {orig_dur:.1f}s to {vad_dur:.1f}s ({reduction:.0f}% reduction)")
+                        print(
+                            f"VAD: Reduced audio from {orig_dur:.1f}s to {vad_dur:.1f}s ({reduction:.0f}% reduction)"
+                        )
                 except Exception as e:
                     print(f"VAD failed, using original audio: {e}")
 
@@ -254,7 +275,6 @@ class TitleGeneratorWorker(QThread):
             self.error.emit(str(e))
 
 
-
 class MainWindow(QMainWindow):
     """Main application window."""
 
@@ -273,8 +293,12 @@ class MainWindow(QMainWindow):
         self.accumulated_segments: list[bytes] = []  # For append mode
         self.accumulated_duration: float = 0.0
         self.append_mode: bool = False  # Track if next transcription should append
-        self.has_cached_audio: bool = False  # Track if we have stopped audio waiting to be transcribed
-        self.has_failed_audio: bool = False  # Track if we have audio from a failed transcription (for retry)
+        self.has_cached_audio: bool = (
+            False  # Track if we have stopped audio waiting to be transcribed
+        )
+        self.has_failed_audio: bool = (
+            False  # Track if we have audio from a failed transcription (for retry)
+        )
         self._failover_in_progress: bool = False  # Track if we're currently in a failover attempt
 
         # Initialize unified prompt library
@@ -347,7 +371,7 @@ class MainWindow(QMainWindow):
             self.transcribe_btn.setEnabled(False)
             self.append_btn.setEnabled(False)
             self.delete_btn.setEnabled(False)
-        self._set_tray_state('idle')
+        self._set_tray_state("idle")
 
     def _cleanup_worker(self, worker_attr: str, timeout_ms: int = 2000):
         """Safely clean up a worker thread before creating a new one.
@@ -370,17 +394,17 @@ class MainWindow(QMainWindow):
         except (TypeError, RuntimeError):
             pass
         try:
-            if hasattr(worker, 'status'):
+            if hasattr(worker, "status"):
                 worker.status.disconnect()
         except (TypeError, RuntimeError):
             pass
         try:
-            if hasattr(worker, 'vad_complete'):
+            if hasattr(worker, "vad_complete"):
                 worker.vad_complete.disconnect()
         except (TypeError, RuntimeError):
             pass
         try:
-            if hasattr(worker, 'progress'):
+            if hasattr(worker, "progress"):
                 worker.progress.disconnect()
         except (TypeError, RuntimeError):
             pass
@@ -399,9 +423,9 @@ class MainWindow(QMainWindow):
 
     def _cleanup_all_workers(self):
         """Clean up all worker threads. Called on application quit."""
-        self._cleanup_worker('worker')
-        self._cleanup_worker('rewrite_worker')
-        self._cleanup_worker('title_worker')
+        self._cleanup_worker("worker")
+        self._cleanup_worker("rewrite_worker")
+        self._cleanup_worker("title_worker")
 
     def setup_ui(self):
         """Set up the main UI with tabs."""
@@ -462,9 +486,7 @@ class MainWindow(QMainWindow):
         self.record_btn.setMinimumHeight(42)
         self.record_btn.setMinimumWidth(50)
         self.record_btn.setToolTip(
-            "Record\n"
-            "Start a new recording.\n"
-            "Clears any cached audio and begins fresh."
+            "Record\nStart a new recording.\nClears any cached audio and begins fresh."
         )
         self._record_btn_idle_style = """
             QPushButton {
@@ -509,9 +531,7 @@ class MainWindow(QMainWindow):
         self.pause_btn.setMinimumWidth(44)
         self.pause_btn.setEnabled(False)
         self.pause_btn.setToolTip(
-            "Pause\n"
-            "Pause/resume the current recording.\n"
-            "Only available while recording is active."
+            "Pause\nPause/resume the current recording.\nOnly available while recording is active."
         )
         self.pause_btn.setStyleSheet("""
             QPushButton {
@@ -793,7 +813,9 @@ class MainWindow(QMainWindow):
         # Separator before VAD checkbox
         mode_separator_vad = QFrame()
         mode_separator_vad.setFrameShape(QFrame.Shape.VLine)
-        mode_separator_vad.setStyleSheet("background-color: #ced4da; max-width: 1px; margin: 0 8px;")
+        mode_separator_vad.setStyleSheet(
+            "background-color: #ced4da; max-width: 1px; margin: 0 8px;"
+        )
         mode_layout.addWidget(mode_separator_vad)
 
         # VAD checkbox (silence removal)
@@ -818,7 +840,9 @@ class MainWindow(QMainWindow):
         # Separator before status label
         mode_separator_status = QFrame()
         mode_separator_status.setFrameShape(QFrame.Shape.VLine)
-        mode_separator_status.setStyleSheet("background-color: #ced4da; max-width: 1px; margin: 0 8px;")
+        mode_separator_status.setStyleSheet(
+            "background-color: #ced4da; max-width: 1px; margin: 0 8px;"
+        )
         mode_layout.addWidget(mode_separator_status)
 
         # Status label (right side) - shows recording/transcribing state
@@ -919,8 +943,7 @@ class MainWindow(QMainWindow):
 
         # Copy button with clipboard icon (centered)
         copy_icon = QIcon.fromTheme(
-            "edit-copy",
-            self.style().standardIcon(self.style().StandardPixmap.SP_DialogSaveButton)
+            "edit-copy", self.style().standardIcon(self.style().StandardPixmap.SP_DialogSaveButton)
         )
         self.copy_btn = QPushButton(copy_icon, "Copy")
         self.copy_btn.setMinimumHeight(38)
@@ -932,22 +955,35 @@ class MainWindow(QMainWindow):
 
         layout.addLayout(bottom)
 
-        # Bottom status bar: microphone (left), status (center), model (right)
+        # Bottom status bar: microphone selector (left), model selector (right)
         status_bar = QHBoxLayout()
 
-        # Microphone info (left) - with bold "Mic:" prefix
-        self.mic_label = QLabel()
-        self.mic_label.setStyleSheet("color: #888; font-size: 11px;")
-        self.mic_label.setTextFormat(Qt.TextFormat.RichText)
-        status_bar.addWidget(self.mic_label)
+        # Microphone selector (left) - dropdown button
+        self.mic_selector_btn = QToolButton()
+        self.mic_selector_btn.setPopupMode(QToolButton.ToolButtonPopupMode.InstantPopup)
+        self.mic_selector_btn.setStyleSheet("""
+            QToolButton {
+                color: #888;
+                font-size: 11px;
+                border: none;
+                padding: 2px 4px;
+            }
+            QToolButton:hover {
+                background-color: rgba(0, 0, 0, 0.05);
+                border-radius: 4px;
+            }
+            QToolButton::menu-indicator {
+                width: 0;
+                height: 0;
+            }
+        """)
+        self.mic_selector_btn.setToolTip("Click to change microphone")
+        self._setup_microphone_menu()
+        status_bar.addWidget(self.mic_selector_btn)
 
         status_bar.addStretch()
 
-        # Model selector (right) - bold label + clickable button with dropdown menu
-        model_prefix = QLabel("<b>Model:</b>")
-        model_prefix.setStyleSheet("color: #888; font-size: 11px;")
-        status_bar.addWidget(model_prefix)
-
+        # Model selector (right) - dropdown button
         self.model_selector_btn = QToolButton()
         self.model_selector_btn.setPopupMode(QToolButton.ToolButtonPopupMode.InstantPopup)
         self.model_selector_btn.setStyleSheet("""
@@ -970,26 +1006,6 @@ class MainWindow(QMainWindow):
         self._setup_model_preset_menu()
         status_bar.addWidget(self.model_selector_btn)
 
-        # Stats speaker button (plays usage stats via TTS)
-        self.stats_speaker_btn = QToolButton()
-        self.stats_speaker_btn.setIcon(QIcon.fromTheme(
-            "audio-speakers",
-            self.style().standardIcon(self.style().StandardPixmap.SP_MediaVolume)
-        ))
-        self.stats_speaker_btn.setToolTip("Play usage stats")
-        self.stats_speaker_btn.setStyleSheet("""
-            QToolButton {
-                border: none;
-                padding: 2px;
-            }
-            QToolButton:hover {
-                background-color: rgba(0, 0, 0, 0.1);
-                border-radius: 4px;
-            }
-        """)
-        self.stats_speaker_btn.clicked.connect(self._play_stats)
-        status_bar.addWidget(self.stats_speaker_btn)
-
         layout.addLayout(status_bar)
 
         # Initialize mic and model displays
@@ -999,7 +1015,9 @@ class MainWindow(QMainWindow):
         # Add tabs with theme icons instead of emojis
         record_icon = QIcon.fromTheme(
             "audio-input-microphone",
-            QIcon.fromTheme("microphone", self.style().standardIcon(self.style().StandardPixmap.SP_MediaVolume))
+            QIcon.fromTheme(
+                "microphone", self.style().standardIcon(self.style().StandardPixmap.SP_MediaVolume)
+            ),
         )
         self.tabs.addTab(record_tab, record_icon, "Record")
 
@@ -1008,7 +1026,10 @@ class MainWindow(QMainWindow):
         self.history_widget.transcription_selected.connect(self.on_history_transcription_selected)
         history_icon = QIcon.fromTheme(
             "document-open-recent",
-            QIcon.fromTheme("edit-undo-history", self.style().standardIcon(self.style().StandardPixmap.SP_FileDialogContentsView))
+            QIcon.fromTheme(
+                "edit-undo-history",
+                self.style().standardIcon(self.style().StandardPixmap.SP_FileDialogContentsView),
+            ),
         )
         self.tabs.addTab(self.history_widget, history_icon, "History")
 
@@ -1016,7 +1037,10 @@ class MainWindow(QMainWindow):
         self.file_transcription_widget = FileTranscriptionWidget(config=self.config)
         file_icon = QIcon.fromTheme(
             "folder-open",
-            QIcon.fromTheme("document-open", self.style().standardIcon(self.style().StandardPixmap.SP_DirOpenIcon))
+            QIcon.fromTheme(
+                "document-open",
+                self.style().standardIcon(self.style().StandardPixmap.SP_DirOpenIcon),
+            ),
         )
         self.tabs.addTab(self.file_transcription_widget, file_icon, "File")
 
@@ -1095,49 +1119,59 @@ class MainWindow(QMainWindow):
 
         # Track tray state for click behavior and menu updates
         # States: 'idle', 'recording', 'stopped', 'transcribing', 'complete'
-        self._tray_state = 'idle'
+        self._tray_state = "idle"
 
         # Set up icons for different states
         # Idle: notepad/text editor icon (common in KDE themes)
         self._tray_icon_idle = QIcon.fromTheme(
             "accessories-text-editor",
-            QIcon.fromTheme("text-x-generic",
-                self.style().standardIcon(self.style().StandardPixmap.SP_FileDialogDetailedView))
+            QIcon.fromTheme(
+                "text-x-generic",
+                self.style().standardIcon(self.style().StandardPixmap.SP_FileDialogDetailedView),
+            ),
         )
         # Recording: red record icon
         self._tray_icon_recording = QIcon.fromTheme(
-            "media-record",
-            self.style().standardIcon(self.style().StandardPixmap.SP_DialogNoButton)
+            "media-record", self.style().standardIcon(self.style().StandardPixmap.SP_DialogNoButton)
         )
         # Stopped: pause icon (recording stopped, awaiting user decision)
         self._tray_icon_stopped = QIcon.fromTheme(
             "media-playback-pause",
-            QIcon.fromTheme("player-pause",
-                self.style().standardIcon(self.style().StandardPixmap.SP_MediaPause))
+            QIcon.fromTheme(
+                "player-pause", self.style().standardIcon(self.style().StandardPixmap.SP_MediaPause)
+            ),
         )
         # Transcribing: process/sync icon (horizontal bar style)
         self._tray_icon_transcribing = QIcon.fromTheme(
             "emblem-synchronizing",
-            QIcon.fromTheme("view-refresh",
-                self.style().standardIcon(self.style().StandardPixmap.SP_BrowserReload))
+            QIcon.fromTheme(
+                "view-refresh",
+                self.style().standardIcon(self.style().StandardPixmap.SP_BrowserReload),
+            ),
         )
         # Complete: green tick/checkmark
         self._tray_icon_complete = QIcon.fromTheme(
             "emblem-ok",
-            QIcon.fromTheme("dialog-ok",
-                self.style().standardIcon(self.style().StandardPixmap.SP_DialogApplyButton))
+            QIcon.fromTheme(
+                "dialog-ok",
+                self.style().standardIcon(self.style().StandardPixmap.SP_DialogApplyButton),
+            ),
         )
         # Clipboard complete: clipboard/paste icon
         self._tray_icon_clipboard = QIcon.fromTheme(
             "edit-paste",
-            QIcon.fromTheme("clipboard",
-                self.style().standardIcon(self.style().StandardPixmap.SP_FileDialogContentsView))
+            QIcon.fromTheme(
+                "clipboard",
+                self.style().standardIcon(self.style().StandardPixmap.SP_FileDialogContentsView),
+            ),
         )
         # Inject complete: keyboard/input icon
         self._tray_icon_inject = QIcon.fromTheme(
             "input-keyboard",
-            QIcon.fromTheme("preferences-desktop-keyboard",
-                self.style().standardIcon(self.style().StandardPixmap.SP_ComputerIcon))
+            QIcon.fromTheme(
+                "preferences-desktop-keyboard",
+                self.style().standardIcon(self.style().StandardPixmap.SP_ComputerIcon),
+            ),
         )
 
         self.tray.setIcon(self._tray_icon_idle)
@@ -1155,6 +1189,12 @@ class MainWindow(QMainWindow):
 
         self._tray_stop_action = QAction("Stop Recording", self)
         self._tray_stop_action.triggered.connect(self._tray_stop_recording)
+
+        self._tray_pause_action = QAction("Pause Recording", self)
+        self._tray_pause_action.triggered.connect(self._tray_pause_recording)
+
+        self._tray_send_action = QAction("Send", self)
+        self._tray_send_action.triggered.connect(self._tray_send_for_transcription)
 
         self._tray_transcribe_action = QAction("Transcribe", self)
         self._tray_transcribe_action.triggered.connect(self._tray_transcribe_stopped)
@@ -1179,7 +1219,9 @@ class MainWindow(QMainWindow):
 
         self._tray_mode_clipboard_action = QAction("Clipboard", self)
         self._tray_mode_clipboard_action.setCheckable(True)
-        self._tray_mode_clipboard_action.triggered.connect(lambda: self._tray_toggle_mode("clipboard"))
+        self._tray_mode_clipboard_action.triggered.connect(
+            lambda: self._tray_toggle_mode("clipboard")
+        )
         self._tray_mode_actions["clipboard"] = self._tray_mode_clipboard_action
 
         self._tray_mode_inject_action = QAction("Inject", self)
@@ -1207,6 +1249,7 @@ class MainWindow(QMainWindow):
     def _on_pulse_timer(self):
         """Handle pulsation animation for record button."""
         import math
+
         # Increment phase (complete cycle every ~2 seconds at 50ms intervals)
         self._pulse_phase += 0.025
         if self._pulse_phase > 1.0:
@@ -1217,8 +1260,8 @@ class MainWindow(QMainWindow):
 
         # Interpolate between dim red and bright red
         # Dim: #cc0000, Bright: #ff4444
-        r_dim, g_dim, b_dim = 0xcc, 0x00, 0x00
-        r_bright, g_bright, b_bright = 0xff, 0x44, 0x44
+        r_dim, g_dim, b_dim = 0xCC, 0x00, 0x00
+        r_bright, g_bright, b_bright = 0xFF, 0x44, 0x44
 
         r = int(r_dim + (r_bright - r_dim) * pulse)
         g = int(g_dim + (g_bright - g_dim) * pulse)
@@ -1226,16 +1269,16 @@ class MainWindow(QMainWindow):
 
         # Border brightness also pulses
         border_dim = 0x99
-        border_bright = 0xff
+        border_bright = 0xFF
         border_val = int(border_dim + (border_bright - border_dim) * pulse)
 
         style = f"""
             QPushButton {{
                 background-color: qlineargradient(x1:0, y1:0, x2:0, y2:1,
-                    stop:0 #{r:02x}{g:02x}{b:02x}, stop:1 #{max(r-30,0):02x}{max(g-30,0):02x}{max(b-30,0):02x});
+                    stop:0 #{r:02x}{g:02x}{b:02x}, stop:1 #{max(r - 30, 0):02x}{max(g - 30, 0):02x}{max(b - 30, 0):02x});
                 color: white;
-                border: 3px solid #{border_val:02x}{border_val//3:02x}{border_val//3:02x};
-                border-bottom: 4px solid #{max(r-60,0):02x}0000;
+                border: 3px solid #{border_val:02x}{border_val // 3:02x}{border_val // 3:02x};
+                border-bottom: 4px solid #{max(r - 60, 0):02x}0000;
                 border-radius: 6px;
                 font-weight: bold;
                 font-size: 24px;
@@ -1296,8 +1339,14 @@ class MainWindow(QMainWindow):
         responsiveness when the window has focus.
         """
         # Clean up old shortcuts if they exist
-        shortcut_attrs = ['_shortcut_toggle', '_shortcut_tap_toggle', '_shortcut_transcribe',
-                         '_shortcut_clear', '_shortcut_append', '_shortcut_pause']
+        shortcut_attrs = [
+            "_shortcut_toggle",
+            "_shortcut_tap_toggle",
+            "_shortcut_transcribe",
+            "_shortcut_clear",
+            "_shortcut_append",
+            "_shortcut_pause",
+        ]
         for attr in shortcut_attrs:
             if hasattr(self, attr):
                 shortcut = getattr(self, attr)
@@ -1400,8 +1449,14 @@ class MainWindow(QMainWindow):
         Each hotkey can be configured to any key from F13-F24, or disabled.
         """
         # Unregister all existing hotkeys first
-        for name in ["hotkey_toggle", "hotkey_tap_toggle", "hotkey_transcribe",
-                     "hotkey_clear", "hotkey_append", "hotkey_pause"]:
+        for name in [
+            "hotkey_toggle",
+            "hotkey_tap_toggle",
+            "hotkey_transcribe",
+            "hotkey_clear",
+            "hotkey_append",
+            "hotkey_pause",
+        ]:
             self.hotkey_listener.unregister(name)
 
         # Toggle: start/stop and transcribe
@@ -1409,7 +1464,7 @@ class MainWindow(QMainWindow):
             self.hotkey_listener.register(
                 "hotkey_toggle",
                 self.config.hotkey_toggle,
-                lambda: QTimer.singleShot(0, self._hotkey_toggle_recording)
+                lambda: QTimer.singleShot(0, self._hotkey_toggle_recording),
             )
 
         # Tap toggle: start/stop and cache (for append mode)
@@ -1417,7 +1472,7 @@ class MainWindow(QMainWindow):
             self.hotkey_listener.register(
                 "hotkey_tap_toggle",
                 self.config.hotkey_tap_toggle,
-                lambda: QTimer.singleShot(0, self._hotkey_tap_toggle)
+                lambda: QTimer.singleShot(0, self._hotkey_tap_toggle),
             )
 
         # Transcribe: transcribe cached audio only
@@ -1425,7 +1480,7 @@ class MainWindow(QMainWindow):
             self.hotkey_listener.register(
                 "hotkey_transcribe",
                 self.config.hotkey_transcribe,
-                lambda: QTimer.singleShot(0, self._hotkey_transcribe_only)
+                lambda: QTimer.singleShot(0, self._hotkey_transcribe_only),
             )
 
         # Clear: clear cache/delete recording
@@ -1433,7 +1488,7 @@ class MainWindow(QMainWindow):
             self.hotkey_listener.register(
                 "hotkey_clear",
                 self.config.hotkey_clear,
-                lambda: QTimer.singleShot(0, self._hotkey_delete)
+                lambda: QTimer.singleShot(0, self._hotkey_delete),
             )
 
         # Append: start new recording to add to cache
@@ -1441,7 +1496,7 @@ class MainWindow(QMainWindow):
             self.hotkey_listener.register(
                 "hotkey_append",
                 self.config.hotkey_append,
-                lambda: QTimer.singleShot(0, self._hotkey_append)
+                lambda: QTimer.singleShot(0, self._hotkey_append),
             )
 
         # Pause: pause/resume current recording
@@ -1449,7 +1504,7 @@ class MainWindow(QMainWindow):
             self.hotkey_listener.register(
                 "hotkey_pause",
                 self.config.hotkey_pause,
-                lambda: QTimer.singleShot(0, self._hotkey_pause)
+                lambda: QTimer.singleShot(0, self._hotkey_pause),
             )
 
     def _hotkey_toggle_recording(self):
@@ -1547,12 +1602,12 @@ class MainWindow(QMainWindow):
             self,
             "Save Transcription",
             "",
-            "Markdown Files (*.md);;Text Files (*.txt);;All Files (*)"
+            "Markdown Files (*.md);;Text Files (*.txt);;All Files (*)",
         )
 
         if file_path:
             try:
-                with open(file_path, 'w', encoding='utf-8') as f:
+                with open(file_path, "w", encoding="utf-8") as f:
                     f.write(text)
                 self.status_label.setText("Saved!")
                 self.status_label.setStyleSheet("color: rgba(40, 167, 69, 0.7); font-size: 11px;")
@@ -1565,9 +1620,7 @@ class MainWindow(QMainWindow):
     def _open_prompt_editor(self):
         """Open the unified Prompt Editor window."""
         if self.prompt_editor_window is None:
-            self.prompt_editor_window = PromptEditorWindow(
-                self.config, CONFIG_DIR, self
-            )
+            self.prompt_editor_window = PromptEditorWindow(self.config, CONFIG_DIR, self)
             self.prompt_editor_window.prompts_changed.connect(self._on_prompts_changed)
 
         self.prompt_editor_window.show()
@@ -1694,7 +1747,7 @@ class MainWindow(QMainWindow):
         # Reload the prompt library
         self.prompt_library = PromptLibrary(CONFIG_DIR)
         # Refresh the stack builder to show updated prompts and stacks
-        if hasattr(self, 'stack_builder'):
+        if hasattr(self, "stack_builder"):
             self.stack_builder.refresh_custom_prompts()
 
     def _on_stack_changed(self):
@@ -1757,11 +1810,11 @@ class MainWindow(QMainWindow):
             # Clear any failed audio state when starting a new recording
             if self.has_failed_audio:
                 self.has_failed_audio = False
-                if hasattr(self, 'last_audio_data'):
+                if hasattr(self, "last_audio_data"):
                     del self.last_audio_data
-                if hasattr(self, 'last_audio_duration'):
+                if hasattr(self, "last_audio_duration"):
                     del self.last_audio_duration
-                if hasattr(self, 'last_vad_duration'):
+                if hasattr(self, "last_vad_duration"):
                     del self.last_vad_duration
 
             # Set microphone from config
@@ -1788,7 +1841,7 @@ class MainWindow(QMainWindow):
             # Start visual effects (pulsating record button, grayscale other controls)
             self._start_recording_visual_effects()
             # Update tray to recording state
-            self._set_tray_state('recording')
+            self._set_tray_state("recording")
 
     def toggle_pause(self):
         """Toggle pause state."""
@@ -1852,11 +1905,13 @@ class MainWindow(QMainWindow):
         self.transcribe_btn.setEnabled(True)  # Can transcribe cached audio
         self.transcribe_btn.setStyleSheet(self._transcribe_btn_idle_style)  # Green when cached
         self.delete_btn.setEnabled(True)  # Can delete cached audio
-        self.status_label.setText(f"Stopped ({len(self.accumulated_segments)} clip{'s' if len(self.accumulated_segments) > 1 else ''})")
+        self.status_label.setText(
+            f"Stopped ({len(self.accumulated_segments)} clip{'s' if len(self.accumulated_segments) > 1 else ''})"
+        )
         self.status_label.setStyleSheet("color: rgba(255, 193, 7, 0.8); font-size: 11px;")
 
         # Update tray to stopped state
-        self._set_tray_state('stopped')
+        self._set_tray_state("stopped")
 
     def append_to_transcription(self):
         """Start a new recording that will be appended to cached audio."""
@@ -1906,7 +1961,7 @@ class MainWindow(QMainWindow):
         self.status_label.setStyleSheet("color: rgba(0, 123, 255, 0.7); font-size: 11px;")
 
         # Update tray to transcribing state
-        self._set_tray_state('transcribing')
+        self._set_tray_state("transcribing")
 
         # Get provider and model from active preset
         provider, model = self._get_current_model()
@@ -1925,11 +1980,13 @@ class MainWindow(QMainWindow):
             return
 
         # Clean up any previous worker before creating new one
-        self._cleanup_worker('worker')
+        self._cleanup_worker("worker")
 
         # Start transcription worker
         # Pass audio duration for short audio optimization (minimal prompt for < 30s recordings)
-        cleanup_prompt = build_cleanup_prompt(self.config, audio_duration_seconds=self.last_audio_duration)
+        cleanup_prompt = build_cleanup_prompt(
+            self.config, audio_duration_seconds=self.last_audio_duration
+        )
         self.worker = TranscriptionWorker(
             audio_data,
             provider,
@@ -1953,7 +2010,7 @@ class MainWindow(QMainWindow):
 
         Uses the stored last_audio_data from the failed attempt.
         """
-        if not hasattr(self, 'last_audio_data') or not self.last_audio_data:
+        if not hasattr(self, "last_audio_data") or not self.last_audio_data:
             return  # No audio to retry
 
         # Clear the failed audio flag
@@ -1972,7 +2029,7 @@ class MainWindow(QMainWindow):
         self.status_label.show()
 
         # Update tray to transcribing state
-        self._set_tray_state('transcribing')
+        self._set_tray_state("transcribing")
 
         # Get provider and model from active preset
         provider, model = self._get_current_model()
@@ -1993,11 +2050,11 @@ class MainWindow(QMainWindow):
             return
 
         # Clean up any previous worker before creating new one
-        self._cleanup_worker('worker')
+        self._cleanup_worker("worker")
 
         # Start transcription worker
         # Use stored duration for short audio optimization
-        audio_duration = getattr(self, 'last_audio_duration', None)
+        audio_duration = getattr(self, "last_audio_duration", None)
         cleanup_prompt = build_cleanup_prompt(self.config, audio_duration_seconds=audio_duration)
         self.worker = TranscriptionWorker(
             self.last_audio_data,
@@ -2108,7 +2165,7 @@ class MainWindow(QMainWindow):
         self.status_label.setStyleSheet("color: rgba(0, 123, 255, 0.7); font-size: 11px;")
 
         # Update tray to transcribing state
-        self._set_tray_state('transcribing')
+        self._set_tray_state("transcribing")
 
         # Get provider and model from active preset
         provider, model = self._get_current_model()
@@ -2127,11 +2184,13 @@ class MainWindow(QMainWindow):
             return
 
         # Clean up any previous worker before creating new one
-        self._cleanup_worker('worker')
+        self._cleanup_worker("worker")
 
         # Start transcription worker (VAD + compression + transcription all in background)
         # Pass audio duration for short audio optimization (minimal prompt for < 30s recordings)
-        cleanup_prompt = build_cleanup_prompt(self.config, audio_duration_seconds=self.last_audio_duration)
+        cleanup_prompt = build_cleanup_prompt(
+            self.config, audio_duration_seconds=self.last_audio_duration
+        )
         self.worker = TranscriptionWorker(
             audio_data,
             provider,
@@ -2212,15 +2271,18 @@ class MainWindow(QMainWindow):
         elif result.input_tokens > 0 or result.output_tokens > 0:
             # Fall back to estimated cost
             tracker = get_tracker()
-            final_cost = tracker.record_usage(provider, model, result.input_tokens, result.output_tokens)
+            final_cost = tracker.record_usage(
+                provider, model, result.input_tokens, result.output_tokens
+            )
 
         # Get inference time from worker
         inference_time_ms = self.worker.inference_time_ms if self.worker else 0
 
         # Optionally archive audio
         audio_file_path = None
-        if self.config.store_audio and hasattr(self, 'last_audio_data'):
+        if self.config.store_audio and hasattr(self, "last_audio_data"):
             from datetime import datetime
+
             timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
             audio_filename = f"{timestamp}.opus"
             audio_path = AUDIO_ARCHIVE_DIR / audio_filename
@@ -2228,8 +2290,8 @@ class MainWindow(QMainWindow):
                 audio_file_path = str(audio_path)
 
         # Save to database
-        audio_duration = getattr(self, 'last_audio_duration', None)
-        vad_duration = getattr(self, 'last_vad_duration', None)
+        audio_duration = getattr(self, "last_audio_duration", None)
+        vad_duration = getattr(self, "last_vad_duration", None)
         prompt_length = len(self.worker.prompt) if self.worker else 0
         db = get_db()
         db.save_transcription(
@@ -2248,11 +2310,11 @@ class MainWindow(QMainWindow):
 
         # Clear stored audio data and retry state
         self.has_failed_audio = False
-        if hasattr(self, 'last_audio_data'):
+        if hasattr(self, "last_audio_data"):
             del self.last_audio_data
-        if hasattr(self, 'last_audio_duration'):
+        if hasattr(self, "last_audio_duration"):
             del self.last_audio_duration
-        if hasattr(self, 'last_vad_duration'):
+        if hasattr(self, "last_vad_duration"):
             del self.last_vad_duration
 
         # Handle outputs - execute all enabled modes
@@ -2304,8 +2366,18 @@ class MainWindow(QMainWindow):
         invisible_action = did_clipboard or did_inject
         is_silent = self.config.audio_feedback_mode == "silent"
         if not is_silent or not invisible_action:
-            complete_states = ('complete', 'clipboard_complete', 'inject_complete', 'clipboard_inject_complete')
-            QTimer.singleShot(3000, lambda: self._set_tray_state('idle') if self._tray_state in complete_states else None)
+            complete_states = (
+                "complete",
+                "clipboard_complete",
+                "inject_complete",
+                "clipboard_inject_complete",
+            )
+            QTimer.singleShot(
+                3000,
+                lambda: self._set_tray_state("idle")
+                if self._tray_state in complete_states
+                else None,
+            )
 
     def on_transcription_error(self, error: str):
         """Handle transcription error with automatic failover support."""
@@ -2313,7 +2385,7 @@ class MainWindow(QMainWindow):
         should_failover = (
             self.config.failover_enabled
             and not self._failover_in_progress
-            and hasattr(self, 'last_audio_data')
+            and hasattr(self, "last_audio_data")
             and self.last_audio_data
             and is_preset_configured(self.config, "fallback")
         )
@@ -2324,25 +2396,34 @@ class MainWindow(QMainWindow):
             if fallback:
                 fallback_provider, fallback_model = fallback
                 fallback_api_key = (
-                    self.config.gemini_api_key if fallback_provider == "gemini"
+                    self.config.gemini_api_key
+                    if fallback_provider == "gemini"
                     else self.config.openrouter_api_key
                 )
 
                 if fallback_api_key:
-                    print(f"Primary transcription failed. Attempting failover to {fallback_provider}/{fallback_model}...")
-                    self.status_label.setText(f"Failover: trying {self.config.fallback_name or 'fallback'}...")
-                    self.status_label.setStyleSheet("color: rgba(255, 165, 0, 0.9); font-size: 11px;")  # Orange for failover
+                    print(
+                        f"Primary transcription failed. Attempting failover to {fallback_provider}/{fallback_model}..."
+                    )
+                    self.status_label.setText(
+                        f"Failover: trying {self.config.fallback_name or 'fallback'}..."
+                    )
+                    self.status_label.setStyleSheet(
+                        "color: rgba(255, 165, 0, 0.9); font-size: 11px;"
+                    )  # Orange for failover
                     self.status_label.show()
 
                     # Set flag to prevent infinite failover loop
                     self._failover_in_progress = True
 
                     # Clean up the failed worker
-                    self._cleanup_worker('worker')
+                    self._cleanup_worker("worker")
 
                     # Start failover transcription
-                    audio_duration = getattr(self, 'last_audio_duration', None)
-                    cleanup_prompt = build_cleanup_prompt(self.config, audio_duration_seconds=audio_duration)
+                    audio_duration = getattr(self, "last_audio_duration", None)
+                    cleanup_prompt = build_cleanup_prompt(
+                        self.config, audio_duration_seconds=audio_duration
+                    )
                     self.worker = TranscriptionWorker(
                         self.last_audio_data,
                         fallback_provider,
@@ -2366,7 +2447,7 @@ class MainWindow(QMainWindow):
             get_announcer().announce_error()
 
         # Check if we have audio data to retry with
-        if hasattr(self, 'last_audio_data') and self.last_audio_data:
+        if hasattr(self, "last_audio_data") and self.last_audio_data:
             self.has_failed_audio = True
             QMessageBox.warning(
                 self,
@@ -2375,12 +2456,12 @@ class MainWindow(QMainWindow):
                 "or delete to discard.",
             )
             self._show_retry_ui()
-            self._set_tray_state('idle')
+            self._set_tray_state("idle")
         else:
             # No audio to retry with - show error and reset normally
             QMessageBox.critical(self, "Transcription Error", error)
             self.reset_ui()
-            self._set_tray_state('idle')
+            self._set_tray_state("idle")
 
     def _on_failover_complete(self, result: TranscriptionResult):
         """Handle successful failover transcription."""
@@ -2399,7 +2480,7 @@ class MainWindow(QMainWindow):
         if self.config.audio_feedback_mode == "tts":
             get_announcer().announce_error()
 
-        if hasattr(self, 'last_audio_data') and self.last_audio_data:
+        if hasattr(self, "last_audio_data") and self.last_audio_data:
             self.has_failed_audio = True
             QMessageBox.warning(
                 self,
@@ -2410,25 +2491,102 @@ class MainWindow(QMainWindow):
                 "or delete to discard.",
             )
             self._show_retry_ui()
-            self._set_tray_state('idle')
+            self._set_tray_state("idle")
         else:
             QMessageBox.critical(
                 self,
                 "Transcription Error",
-                f"Both primary and fallback models failed.\n\nError: {error}"
+                f"Both primary and fallback models failed.\n\nError: {error}",
             )
             self.reset_ui()
-            self._set_tray_state('idle')
+            self._set_tray_state("idle")
 
     def _update_mic_display(self):
-        """Update the microphone display label."""
+        """Update the microphone selector button text and menu."""
         display_name, full_name = self._get_active_microphone_name()
         # Limit to 3 words
         words = display_name.split()
         if len(words) > 3:
-            display_name = ' '.join(words[:3])
-        self.mic_label.setText(f"<b>Mic:</b> {display_name}")
-        self.mic_label.setToolTip(f"Active microphone: {full_name}\nChange in Settings → Mic")
+            display_name = " ".join(words[:3])
+        self.mic_selector_btn.setText(display_name)
+        self.mic_selector_btn.setToolTip(f"Microphone: {full_name}\nClick to change")
+        # Update menu checkmarks
+        self._update_microphone_menu_checks()
+
+    def _setup_microphone_menu(self):
+        """Set up the microphone dropdown menu."""
+        self.microphone_menu = QMenu(self)
+        self.microphone_actions = {}
+
+        # Action group for mutual exclusion
+        self.microphone_action_group = QActionGroup(self)
+        self.microphone_action_group.setExclusive(True)
+
+        # Get available microphones
+        devices = self.recorder.get_input_devices()
+        device_names = [name for idx, name in devices]
+
+        # Add available microphones
+        for idx, name in devices:
+            # Limit display name
+            display_name = name
+            words = name.split()
+            if len(words) > 3:
+                display_name = " ".join(words[:3])
+
+            action = QAction(display_name, self)
+            action.setCheckable(True)
+            action.setData((idx, name))
+            action.triggered.connect(
+                lambda checked, data=(idx, name): self._on_microphone_changed(data)
+            )
+            self.microphone_action_group.addAction(action)
+            self.microphone_menu.addAction(action)
+            self.microphone_actions[name] = action
+
+        # Settings shortcut
+        self.microphone_menu.addSeparator()
+        settings_action = QAction("Configure Microphones...", self)
+        settings_action.triggered.connect(self.show_settings)
+        self.microphone_menu.addAction(settings_action)
+
+        self.mic_selector_btn.setMenu(self.microphone_menu)
+
+        # Set initial check state
+        self._update_microphone_menu_checks()
+
+    def _update_microphone_menu_checks(self):
+        """Update to checkmarks in the microphone menu."""
+        devices = self.recorder.get_input_devices()
+        device_names = [name for idx, name in devices]
+
+        # Determine which device is currently active
+        active_name = None
+        if self.config.preferred_mic_name and self.config.preferred_mic_name in device_names:
+            active_name = self.config.preferred_mic_name
+        elif self.config.fallback_mic_name and self.config.fallback_mic_name in device_names:
+            active_name = self.config.fallback_mic_name
+        elif "pulse" in device_names:
+            active_name = "pulse"
+        elif "default" in device_names:
+            active_name = "default"
+        elif devices:
+            active_name = devices[0][1]
+
+        # Update check marks
+        for name, action in self.microphone_actions.items():
+            action.setChecked(name == active_name)
+
+    def _on_microphone_changed(self, data: tuple[int, str]):
+        """Handle microphone selection change."""
+        idx, name = data
+        # Set as preferred microphone
+        self.config.preferred_mic_name = name
+        self.config.preferred_mic_nickname = None
+        save_config(self.config)
+
+        # Update display
+        self._update_mic_display()
 
     def _get_active_microphone_name(self) -> tuple[str, str]:
         """Get the name of the currently active microphone.
@@ -2455,19 +2613,17 @@ class MainWindow(QMainWindow):
             # Query PipeWire/PulseAudio for the actual default source
             try:
                 result = subprocess.run(
-                    ["pactl", "get-default-source"],
-                    capture_output=True, text=True, timeout=2
+                    ["pactl", "get-default-source"], capture_output=True, text=True, timeout=2
                 )
                 if result.returncode == 0:
                     source_name = result.stdout.strip()
                     if source_name:
                         # Get the description for this source
                         desc_result = subprocess.run(
-                            ["pactl", "list", "sources"],
-                            capture_output=True, text=True, timeout=2
+                            ["pactl", "list", "sources"], capture_output=True, text=True, timeout=2
                         )
                         if desc_result.returncode == 0:
-                            lines = desc_result.stdout.split('\n')
+                            lines = desc_result.stdout.split("\n")
                             found_source = False
                             for line in lines:
                                 if f"Name: {source_name}" in line:
@@ -2600,7 +2756,7 @@ class MainWindow(QMainWindow):
     def _refresh_model_preset_menu(self):
         """Refresh the model preset menu (e.g., after settings change)."""
         # Remove old menu
-        if hasattr(self, 'model_preset_menu'):
+        if hasattr(self, "model_preset_menu"):
             self.model_preset_menu.deleteLater()
         # Recreate menu
         self._setup_model_preset_menu()
@@ -2617,7 +2773,9 @@ class MainWindow(QMainWindow):
         announcer = get_announcer()
         if not announcer.speak_stats(total_transcripts, total_words):
             # Edge TTS not available - show message instead
-            self.status_label.setText(f"Stats: {total_transcripts:,} transcriptions, {total_words:,} words")
+            self.status_label.setText(
+                f"Stats: {total_transcripts:,} transcriptions, {total_words:,} words"
+            )
             self.status_label.show()
 
     def _get_current_model(self) -> tuple[str, str]:
@@ -2693,15 +2851,15 @@ class MainWindow(QMainWindow):
         self.has_failed_audio = False
 
         # Clear any failed audio data
-        if hasattr(self, 'last_audio_data'):
+        if hasattr(self, "last_audio_data"):
             del self.last_audio_data
-        if hasattr(self, 'last_audio_duration'):
+        if hasattr(self, "last_audio_duration"):
             del self.last_audio_duration
-        if hasattr(self, 'last_vad_duration'):
+        if hasattr(self, "last_vad_duration"):
             del self.last_vad_duration
 
         self.reset_ui()
-        self._set_tray_state('idle')
+        self._set_tray_state("idle")
 
     def update_duration(self):
         """Update the duration display - shows only minutes, fades on change."""
@@ -2770,6 +2928,7 @@ class MainWindow(QMainWindow):
         Falls back to ydotool if python-evdev is unavailable.
         """
         from .text_injection import paste_clipboard_with_fallback
+
         paste_clipboard_with_fallback(delay_before=0.1)
 
     def _inject_text_at_cursor(self, text: str) -> bool:
@@ -2784,6 +2943,7 @@ class MainWindow(QMainWindow):
             True if injection succeeded, False otherwise.
         """
         from .text_injection import type_text
+
         return type_text(text, delay_before=0.1)
 
     def copy_to_clipboard(self):
@@ -2843,7 +3003,7 @@ class MainWindow(QMainWindow):
         self.status_label.show()
 
         # Clean up any previous rewrite worker
-        self._cleanup_worker('rewrite_worker')
+        self._cleanup_worker("rewrite_worker")
 
         # Start rewrite worker
         self.rewrite_worker = RewriteWorker(
@@ -2876,7 +3036,9 @@ class MainWindow(QMainWindow):
             final_cost = result.actual_cost
         elif result.input_tokens > 0 or result.output_tokens > 0:
             tracker = get_tracker()
-            final_cost = tracker.record_usage(provider, model, result.input_tokens, result.output_tokens)
+            final_cost = tracker.record_usage(
+                provider, model, result.input_tokens, result.output_tokens
+            )
 
         # Get inference time from worker
         inference_time_ms = self.rewrite_worker.inference_time_ms if self.rewrite_worker else 0
@@ -2918,6 +3080,7 @@ class MainWindow(QMainWindow):
         if not api_key:
             # Fallback: use manual filename if no Gemini key
             from datetime import datetime
+
             timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
             filename = f"transcript_{timestamp}.md"
             self._save_transcript_to_file(filename, text)
@@ -2928,7 +3091,7 @@ class MainWindow(QMainWindow):
         self.status_label.show()
 
         # Clean up any previous title worker
-        self._cleanup_worker('title_worker')
+        self._cleanup_worker("title_worker")
 
         # Start title generation worker
         self.title_worker = TitleGeneratorWorker(
@@ -2955,6 +3118,7 @@ class MainWindow(QMainWindow):
     def on_title_error(self, error: str):
         """Handle title generation error - fall back to timestamp."""
         from datetime import datetime
+
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         text = self.text_output.toPlainText()
         filename = f"transcript_{timestamp}.md"
@@ -2976,7 +3140,7 @@ class MainWindow(QMainWindow):
 
         # Save file
         try:
-            with open(file_path, 'w', encoding='utf-8') as f:
+            with open(file_path, "w", encoding="utf-8") as f:
                 f.write(text)
             print(f"Saved to: {file_path}")
         except Exception as e:
@@ -3052,6 +3216,7 @@ class MainWindow(QMainWindow):
     def changeEvent(self, event):
         """Handle window state changes for proper taskbar activation on Wayland/KDE."""
         from PyQt6.QtCore import QEvent
+
         if event.type() == QEvent.Type.ActivationChange:
             # When window is activated (e.g., via taskbar click), ensure it's visible and raised
             if self.isActiveWindow() and self.isMinimized():
@@ -3066,10 +3231,10 @@ class MainWindow(QMainWindow):
     def on_tray_activated(self, reason):
         """Handle tray icon activation based on current state."""
         if reason == QSystemTrayIcon.ActivationReason.Trigger:
-            if self._tray_state == 'recording':
+            if self._tray_state == "recording":
                 # Clicking during recording stops it and enters stopped state
                 self._tray_stop_recording()
-            elif self._tray_state == 'stopped':
+            elif self._tray_state == "stopped":
                 # In stopped state, show window so user can decide
                 self.show_window()
             else:
@@ -3106,10 +3271,10 @@ class MainWindow(QMainWindow):
         """
         self._tray_state = state
         # Update icon and status label
-        if state == 'idle':
+        if state == "idle":
             self.tray.setIcon(self._tray_icon_idle)
             self.status_label.hide()  # No status shown in idle state
-        elif state == 'recording':
+        elif state == "recording":
             self.tray.setIcon(self._tray_icon_recording)
             self.status_label.setText("● Recording")
             self.status_label.setStyleSheet("""
@@ -3119,7 +3284,7 @@ class MainWindow(QMainWindow):
                 }
             """)
             self.status_label.show()
-        elif state == 'stopped':
+        elif state == "stopped":
             self.tray.setIcon(self._tray_icon_stopped)
             self.status_label.setText("⏸ Stopped")
             self.status_label.setStyleSheet("""
@@ -3129,7 +3294,7 @@ class MainWindow(QMainWindow):
                 }
             """)
             self.status_label.show()
-        elif state == 'transcribing':
+        elif state == "transcribing":
             self.tray.setIcon(self._tray_icon_transcribing)
             self.status_label.setText("⟳ Transcribing")
             self.status_label.setStyleSheet("""
@@ -3139,7 +3304,7 @@ class MainWindow(QMainWindow):
                 }
             """)
             self.status_label.show()
-        elif state == 'complete':
+        elif state == "complete":
             self.tray.setIcon(self._tray_icon_complete)
             self.status_label.setText("✓ Complete")
             self.status_label.setStyleSheet("""
@@ -3149,7 +3314,7 @@ class MainWindow(QMainWindow):
                 }
             """)
             self.status_label.show()
-        elif state == 'clipboard_complete':
+        elif state == "clipboard_complete":
             self.tray.setIcon(self._tray_icon_clipboard)
             self.status_label.setText("📋 Text on Clipboard")
             self.status_label.setStyleSheet("""
@@ -3159,7 +3324,7 @@ class MainWindow(QMainWindow):
                 }
             """)
             self.status_label.show()
-        elif state == 'inject_complete':
+        elif state == "inject_complete":
             self.tray.setIcon(self._tray_icon_inject)
             self.status_label.setText("⌨ Text Injected")
             self.status_label.setStyleSheet("""
@@ -3169,7 +3334,7 @@ class MainWindow(QMainWindow):
                 }
             """)
             self.status_label.show()
-        elif state == 'clipboard_inject_complete':
+        elif state == "clipboard_inject_complete":
             # Both clipboard and inject were performed
             self.tray.setIcon(self._tray_icon_clipboard)  # Use clipboard icon as primary
             self.status_label.setText("📋⌨ Copied + Injected")
@@ -3204,12 +3369,24 @@ class MainWindow(QMainWindow):
 
         self._tray_menu.addSeparator()
 
-        complete_states = ('complete', 'clipboard_complete', 'inject_complete', 'clipboard_inject_complete')
-        if self._tray_state == 'idle' or self._tray_state in complete_states:
+        complete_states = (
+            "complete",
+            "clipboard_complete",
+            "inject_complete",
+            "clipboard_inject_complete",
+        )
+        if self._tray_state == "idle" or self._tray_state in complete_states:
             self._tray_menu.addAction(self._tray_record_action)
-        elif self._tray_state == 'recording':
+        elif self._tray_state == "recording":
+            self._tray_menu.addAction(self._tray_send_action)
             self._tray_menu.addAction(self._tray_stop_action)
-        elif self._tray_state == 'stopped':
+            # Update pause action text based on current pause state
+            if self.recorder.is_paused:
+                self._tray_pause_action.setText("Resume Recording")
+            else:
+                self._tray_pause_action.setText("Pause Recording")
+            self._tray_menu.addAction(self._tray_pause_action)
+        elif self._tray_state == "stopped":
             self._tray_menu.addAction(self._tray_transcribe_action)
             self._tray_menu.addAction(self._tray_resume_action)
             self._tray_menu.addAction(self._tray_delete_action)
@@ -3246,7 +3423,7 @@ class MainWindow(QMainWindow):
 
     def _tray_transcribe_stopped(self):
         """Transcribe the stopped recording from tray menu."""
-        if self._tray_state != 'stopped':
+        if self._tray_state != "stopped":
             return
 
         # Transcribe cached audio
@@ -3258,17 +3435,28 @@ class MainWindow(QMainWindow):
 
     def _tray_delete_stopped(self):
         """Delete the stopped recording from tray menu."""
-        if self._tray_state != 'stopped':
+        if self._tray_state != "stopped":
             return
         self.delete_recording()
 
     def _tray_resume_recording(self):
         """Append more audio from stopped state via tray menu."""
-        if self._tray_state != 'stopped':
+        if self._tray_state != "stopped":
             return
 
         # Use append functionality to record more clips
         self.append_to_transcription()
+
+    def _tray_pause_recording(self):
+        """Pause/resume recording from tray menu."""
+        if not self.recorder.is_recording and not self.recorder.is_paused:
+            return
+        self.toggle_pause()
+
+    def _tray_send_for_transcription(self):
+        """Stop recording and send for transcription from tray menu."""
+        if self.recorder.is_recording:
+            self.stop_and_transcribe()
 
     def quit_app(self):
         """Quit the application."""
