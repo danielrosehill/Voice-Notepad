@@ -47,8 +47,8 @@ decisions/
 # Planning materials (developer notes)
 planning/
 
-# Archives
-archive/
+# Archives (root level only)
+/archive/
 *.tar.gz
 *.zip
 *.7z

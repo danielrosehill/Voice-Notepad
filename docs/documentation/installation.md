@@ -10,13 +10,22 @@ On Windows, choose the installer (.exe) or portable .zip.
 
 ## From Source
 
-Install system dependencies first:
+### Step 1: Install System Dependencies
+
+Install required system packages:
 
 ```bash
-sudo apt install python3 python3-venv ffmpeg portaudio19-dev
+sudo apt install python3 python3-venv ffmpeg portaudio19-dev libc++1
 ```
 
-Then clone and run:
+**Package purposes:**
+- `ffmpeg` - Audio format conversion and compression
+- `portaudio19-dev` - Audio recording library headers
+- `libc++1` - Required by TEN VAD for voice activity detection
+
+### Step 2: Clone and Run
+
+Clone and run:
 
 ```bash
 git clone https://github.com/danielrosehill/Voice-Notepad.git

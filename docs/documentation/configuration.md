@@ -29,7 +29,9 @@ Or configure them in Settings > API Keys within the app.
 
 ## Behavior Settings
 
-**Voice Activity Detection** removes silence from audio before sending to the API. This reduces file size and API costs. Uses Silero VAD, a lightweight ONNX model. Enable in Settings > Behavior.
+**Voice Activity Detection** removes silence from audio before sending to the API. This reduces file size and API costs. Uses [TEN VAD](https://github.com/TEN-framework/ten-vad), a lightweight native library bundled with the application. Enable in Settings > Behavior.
+
+**Automatic Gain Control** normalizes audio levels for consistent transcription accuracy. Boosts quiet audio (up to +20dB) while leaving loud audio unchanged. Enable in Settings > Behavior.
 
 **Audio Archival** saves recordings in Opus format (~24kbps) to `~/.config/voice-notepad-v3/audio-archive/`. A one-minute recording uses about 180KB.
 
@@ -42,7 +44,6 @@ The cleanup prompt instructs the AI how to process your transcription. The defau
 Settings and data are stored in `~/.config/voice-notepad-v3/`:
 
 - `config.json` - API keys and preferences
-- `transcriptions.db` - SQLite transcript history
+- `mongita/` - MongoDB-compatible transcript database
 - `usage/` - Daily cost tracking
 - `audio-archive/` - Opus recordings (if enabled)
-- `models/` - Downloaded VAD model

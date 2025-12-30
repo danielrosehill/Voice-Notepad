@@ -55,6 +55,7 @@ Common remapping options:
 
 ### Technical Notes
 
-- Hotkeys work via XWayland on Wayland desktops
-- F15-F19 are detected via X11 keysyms (65482-65486)
-- The Settings > Hotkeys tab is currently disabled; a configurable UI is planned for a future release
+- On Linux/Wayland: Hotkeys work via evdev (reads directly from input devices)
+- Requires user to be in the 'input' group for evdev access
+- Falls back to pynput/X11 on non-Linux systems
+- Configure hotkeys in Settings > Hotkeys (F13-F24 keys supported)

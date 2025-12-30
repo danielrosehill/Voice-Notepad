@@ -1,10 +1,14 @@
-# AI Transcription Notepad Documentation
+# Voice Notepad Documentation
 
-AI Transcription Notepad is a desktop application that uses multimodal AI models for single-pass transcription and cleanup. See the [README](../README.md) for an overview and quick start guide.
+Voice Notepad is a desktop application that uses a dual-pipeline architecture for voice transcription: local preprocessing (VAD + AGC) combined with cloud-based multimodal AI transcription. See the [README](../README.md) for an overview and quick start guide.
+
+## User Manual
+
+- **[User Manual v3 (PDF)](manuals/Voice-Notepad-User-Manual-v3.pdf)** - Complete guide (v1.9.11) covering the dual-pipeline architecture
 
 ## Getting Started
 
-- [Installation](installation.md) - Download and setup
+- [Installation](installation.md) - Two-stage setup (system dependencies + application)
 - [Configuration](configuration.md) - API keys and settings
 - [Hotkey Setup](hotkey-setup.md) - Global hotkeys for hands-free operation
 - [Text Injection Setup](text-injection.md) - Auto-paste on Wayland (ydotool)
@@ -18,16 +22,19 @@ AI Transcription Notepad is a desktop application that uses multimodal AI models
 
 ## Technical
 
-- [Audio Pipeline](audio-pipeline.md) - How audio is processed before transcription
+- [Audio Pipeline](audio-pipeline.md) - Local preprocessing (VAD, AGC, compression)
+- [Prompt Concatenation](prompt-concatenation.md) - How cleanup instructions are built
 - [Technology Stack](stack.md) - Libraries and dependencies
 - [Multimodal vs ASR](multimodal-vs-asr.md) - Why this approach differs from traditional speech-to-text
 
-## Resources
-
-- [Screenshots](screenshots.md) - Application screenshots
-- [User Manual v2 (PDF)](manuals/Voice-Notepad-User-Manual-v2.pdf) - Complete guide (v1.8.0)
-- [User Manual v2 (Markdown)](manuals/user-manual-v2.md) - Complete guide (v1.8.0)
-
 ## Archive
 
-- [User Manual v1 (PDF)](manuals/archive/Voice-Notepad-User-Manual-v1.pdf) - Legacy guide (v1.3.0)
+Previous documentation versions:
+
+- [User Manual v2 (PDF)](manuals/Voice-Notepad-User-Manual-v2.pdf) - v1.8.0
+- [User Manual v2 (Markdown)](manuals/user-manual-v2.md) - v1.8.0
+- [User Manual v1 (PDF)](manuals/archive/Voice-Notepad-User-Manual-v1.pdf) - v1.3.0
+
+## Screenshots
+
+- [Screenshots](screenshots.md) - Application screenshots (v1.3.0, may be outdated)

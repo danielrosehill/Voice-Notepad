@@ -106,7 +106,7 @@ If you prefer using standard keyboard keys, you can also use:
 - **Scroll Lock** - Another rarely-used key
 - **Insert** - If you don't use it for pasting
 
-Configure these in AI Transcription Notepad's Settings > Hotkeys tab (note: currently fixed to F15-F19, configurable UI coming in a future release).
+Configure these in AI Transcription Notepad's Settings > Hotkeys tab. Each function can be assigned any key from F13-F24, or disabled entirely.
 
 ## Troubleshooting
 
