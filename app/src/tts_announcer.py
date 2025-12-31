@@ -10,8 +10,10 @@ import asyncio
 import os
 import tempfile
 import threading
+import time
+from collections import deque
 from pathlib import Path
-from typing import Optional
+from typing import Optional, Tuple
 
 # Edge TTS for dynamic speech generation
 try:
@@ -74,8 +76,20 @@ class TTSAnnouncer:
         self._audio_cache: dict[str, Optional[bytes]] = {}
         self._sample_rate = 16000  # WAV files are 16kHz
 
+        # Anti-collision queue and worker
+        self._announcement_queue: deque[Tuple[str, bool, Optional[int]]] = deque()
+        self._queue_lock = threading.Lock()
+        self._worker_thread: Optional[threading.Thread] = None
+        self._stop_event = threading.Event()
+        self._last_played_time = 0.0
+        self._min_pause_ms = 300  # Minimum pause between announcements (300ms)
+        self._is_playing = False
+
         # Pre-load all audio files
         self._preload_audio()
+
+        # Start the queue worker thread
+        self._start_worker()
 
     def _preload_audio(self) -> None:
         """Pre-load all TTS audio files into memory."""
@@ -114,17 +128,58 @@ class TTSAnnouncer:
             else:
                 self._audio_cache[name] = None
 
+    def _start_worker(self) -> None:
+        """Start the queue worker thread."""
+        if self._worker_thread is None or not self._worker_thread.is_alive():
+            self._stop_event.clear()
+            self._worker_thread = threading.Thread(target=self._queue_worker, daemon=True)
+            self._worker_thread.start()
+
+    def _queue_worker(self) -> None:
+        """Worker thread that processes the announcement queue."""
+        while not self._stop_event.is_set():
+            # Get next announcement from queue
+            with self._queue_lock:
+                if not self._announcement_queue:
+                    # No announcements, sleep briefly
+                    self._queue_lock.release()
+                    time.sleep(0.05)
+                    continue
+                name, blocking, buffer_ms = self._announcement_queue.popleft()
+
+            # Check if we need a pause before playing
+            current_time = time.time()
+            time_since_last = (current_time - self._last_played_time) * 1000  # Convert to ms
+            if time_since_last < self._min_pause_ms:
+                time.sleep((self._min_pause_ms - time_since_last) / 1000.0)
+
+            # Mark as playing
+            self._is_playing = True
+
+            # Play the announcement
+            audio = self._audio_cache.get(name)
+            if audio is not None:
+                self._play_audio(name, audio)
+
+            # Update last played time
+            self._last_played_time = time.time()
+            self._is_playing = False
+
+            # Apply buffer if specified (for blocking calls)
+            if buffer_ms and buffer_ms > 0:
+                time.sleep(buffer_ms / 1000.0)
+
     def _play_async(self, name: str) -> None:
-        """Play an announcement in a background thread (non-blocking)."""
+        """Queue an announcement for playback (non-blocking)."""
         audio = self._audio_cache.get(name)
         if audio is None:
             return
 
-        thread = threading.Thread(target=self._play_audio, args=(name, audio), daemon=True)
-        thread.start()
+        with self._queue_lock:
+            self._announcement_queue.append((name, False, None))
 
     def _play_sync(self, name: str, buffer_ms: int = 100) -> None:
-        """Play an announcement and block until complete.
+        """Queue and play an announcement, blocking until complete.
 
         Used for announce_recording() to ensure the TTS finishes before
         the microphone starts capturing, preventing "Recording" from
@@ -134,14 +189,30 @@ class TTSAnnouncer:
             name: The announcement name (e.g., "recording")
             buffer_ms: Extra delay after playback to ensure audio is flushed
         """
-        import time
         audio = self._audio_cache.get(name)
         if audio is None:
             return
-        self._play_audio(name, audio)
-        # Small buffer to ensure audio system has fully flushed
-        if buffer_ms > 0:
-            time.sleep(buffer_ms / 1000.0)
+
+        # Create an event to signal completion
+        completion_event = threading.Event()
+
+        # Add to queue with blocking flag
+        with self._queue_lock:
+            # Insert at front of queue for priority
+            self._announcement_queue.appendleft((name, True, buffer_ms))
+
+        # Wait for this announcement to complete
+        while True:
+            with self._queue_lock:
+                # Check if this is the current announcement being played
+                if self._announcement_queue:
+                    # Still in queue or being processed
+                    pass
+                elif not self._is_playing:
+                    # Queue empty and not playing, must be done
+                    break
+
+            time.sleep(0.01)
 
     def _play_audio(self, name: str, audio) -> None:
         """Play audio data."""
@@ -352,6 +423,16 @@ class TTSAnnouncer:
     def _speak_text_sync(self, text: str) -> None:
         """Generate and play TTS synchronously (internal method)."""
         try:
+            # Wait for any ongoing announcement to finish
+            while self._is_playing:
+                time.sleep(0.01)
+
+            # Apply pause if needed
+            current_time = time.time()
+            time_since_last = (current_time - self._last_played_time) * 1000
+            if time_since_last < self._min_pause_ms:
+                time.sleep((self._min_pause_ms - time_since_last) / 1000.0)
+
             # Create temp file for generated audio
             with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as tmp:
                 tmp_path = tmp.name
@@ -359,11 +440,19 @@ class TTSAnnouncer:
             # Generate speech using Edge TTS (async)
             asyncio.run(self._generate_tts(text, tmp_path))
 
+            # Mark as playing
+            self._is_playing = True
+
             # Play the generated audio
             self._play_temp_file(tmp_path)
 
+            # Update last played time
+            self._last_played_time = time.time()
+            self._is_playing = False
+
         except Exception as e:
             print(f"Error generating TTS: {e}")
+            self._is_playing = False
         finally:
             # Clean up temp file
             try:

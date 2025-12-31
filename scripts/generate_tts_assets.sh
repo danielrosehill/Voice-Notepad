@@ -43,6 +43,7 @@ declare -A ANNOUNCEMENTS=(
     # Output modes
     ["text_in_app"]="Text in app"
     ["text_on_clipboard"]="Text on clipboard"
+    ["clipboard"]="Clipboard"
     ["text_injected"]="Text injected"
     ["injection_failed"]="Injection failed"
 

@@ -531,7 +531,7 @@ The app provides audio notifications for recording events. Configure via **Setti
 | Audio cached (append mode) | "Cached" |
 | Transcription started | "Transcribing" |
 | Transcription complete | "Complete" |
-| Text copied to clipboard | "Text on clipboard" |
+| Text copied to clipboard | "Clipboard" |
 | Recording cleared | "Recording discarded" |
 | Error occurred | "Error" |
 | Format preset changed | "Format updated" |
